@@ -1,0 +1,47 @@
+{
+  "name": "facilitate",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev:client": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "axios": "^1.6.8",
+    "bootstrap": "^5.3.3",
+    "chart.js": "^4.4.4",
+    "core-js": "^3.36.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "googleapis": "^144.0.0",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.11.3",
+    "mysqli": "^3.1.4",
+    "vue": "^3.4.21",
+    "vue-gtag": "^2.0.1",
+    "vue-router": "^4.3.0",
+    "vuetify": "^3.6.14",
+    "vuex": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.7.4",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "concurrently": "^9.0.1",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vite": "^5.2.0"
+  },
+  "description": "This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.",
+  "main": "tailwind.config.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
