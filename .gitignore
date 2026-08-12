@@ -24,6 +24,8 @@ dist-ssr
 *.sw?
 server/uploads/*
 !server/uploads/.gitkeep
+src/php/uploads/*
+!src/php/uploads/.gitkeep
 
 # Secrets - never commit
 .env

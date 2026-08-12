@@ -1,12 +1,7 @@
 import axios from 'axios';
+import { PHP_API_BASE } from '../utils/phpApi';
 
-const isLocalHost =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-const LOCAL_API_BASE = '/phpapi';
-const LIVE_API_BASE = 'https://facilitatecareservices.co.uk/php';
-const API_BASE = isLocalHost ? LOCAL_API_BASE : LIVE_API_BASE;
+const API_BASE = PHP_API_BASE;
 
 const endpoint = (action = 'overview', days) => {
   const query = new URLSearchParams();

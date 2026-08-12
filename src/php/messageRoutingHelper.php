@@ -7,6 +7,7 @@ const MESSAGE_CATEGORY_GENERAL_ENQUIRIES = 'general_enquiries';
 const MESSAGE_CATEGORY_COMPLAINTS = 'complaints';
 const MESSAGE_CATEGORY_CARE_THANKS = 'care_thanks';
 const MESSAGE_CATEGORY_JOB_APPLICATIONS = 'job_applications';
+const MESSAGE_CATEGORY_MILEAGE_SUBMISSIONS = 'mileage_submissions';
 const MESSAGE_ROUTING_DEFAULT_RECIPIENT = 'steve@facilitatecareservices.co.uk';
 const MESSAGE_ROUTING_LEGACY_RECIPIENT = 'steve@facilitatecare.co.uk';
 const MESSAGE_ROUTING_DEFAULT_SENDER = 'steve@facilitatecareservices.co.uk';
@@ -35,6 +36,10 @@ function messageRoutingCatalog(): array
             'label' => 'Job Applications',
             'subject' => 'Website Job Application',
         ],
+        MESSAGE_CATEGORY_MILEAGE_SUBMISSIONS => [
+            'label' => 'Mileage Submissions',
+            'subject' => 'New Mileage Submission',
+        ],
     ];
 }
 
@@ -62,6 +67,11 @@ function normalizeMessageCategoryKey($value): string
         'jobapplication' => MESSAGE_CATEGORY_JOB_APPLICATIONS,
         'jobapplications' => MESSAGE_CATEGORY_JOB_APPLICATIONS,
         'jobs' => MESSAGE_CATEGORY_JOB_APPLICATIONS,
+        'mileage_submissions' => MESSAGE_CATEGORY_MILEAGE_SUBMISSIONS,
+        'mileage-submissions' => MESSAGE_CATEGORY_MILEAGE_SUBMISSIONS,
+        'mileage submissions' => MESSAGE_CATEGORY_MILEAGE_SUBMISSIONS,
+        'mileagesubmissions' => MESSAGE_CATEGORY_MILEAGE_SUBMISSIONS,
+        'mileage' => MESSAGE_CATEGORY_MILEAGE_SUBMISSIONS,
     ];
 
     return $map[$normalized] ?? '';
@@ -519,6 +529,16 @@ function buildCategoryNotificationContent(string $categoryKey, array $payload): 
             'City' => $payload['city'] ?? '',
             'Residence Area' => $payload['residenceArea'] ?? '',
             'Residence Duration' => $payload['residenceDuration'] ?? '',
+        ];
+    } elseif ($categoryKey === MESSAGE_CATEGORY_MILEAGE_SUBMISSIONS) {
+        $fields += [
+            'Driver Name' => $payload['driverName'] ?? '',
+            'Phone' => $payload['phone'] ?? '',
+            'Email' => $payload['email'] ?? '',
+            'Submission Type' => $payload['submissionType'] ?? '',
+            'Work Date' => $payload['workDate'] ?? '',
+            'Mileage Claimed' => $payload['mileage'] ?? '',
+            'Photo Attached' => $payload['hasPhoto'] ?? '',
         ];
     }
 

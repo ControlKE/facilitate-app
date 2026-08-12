@@ -41,6 +41,15 @@
           </template>
           <v-list-item-title >Dashboard</v-list-item-title>
         </v-list-item>
+        <v-list-item color="primary" @click="openWhatsAppWeb">
+          <template v-slot:prepend>
+            <v-icon>mdi-whatsapp</v-icon>
+          </template>
+          <v-list-item-title>WhatsApp Web</v-list-item-title>
+          <template v-slot:append>
+            <v-icon size="14" color="grey">mdi-open-in-new</v-icon>
+          </template>
+        </v-list-item>
         <!-- Inbox dropdown menu -->
         <v-list-group v-if="filteredInbox.length" prepend-icon="mdi-email" value="Inbox">
           <template v-slot:activator="{ props }">
@@ -67,9 +76,9 @@
           </v-list-item>
         </v-list-group>
 
-        <v-list-group v-if="filteredMileage.length" prepend-icon="mdi-speedometer" value="Mileage">
+        <v-list-group v-if="filteredMileage.length" prepend-icon="mdi-speedometer" value="Mileage Claims">
           <template v-slot:activator="{ props }">
-            <v-list-item v-bind="props" title="Mileage"></v-list-item>
+            <v-list-item v-bind="props" title="Mileage Claims"></v-list-item>
           </template>
           <v-list-item v-for="(item, i) in filteredMileage" :key="i" :value="item" color="primary" @click="mileageActionClick(item.action)">
             <template v-slot:prepend>
@@ -242,48 +251,68 @@
       title: 'Route Optimiser',
       subtitle: 'Manage client addresses, create runs, and generate suggested visit order.',
     },
+    googledrive: {
+      group: 'Files',
+      title: 'Google Drive',
+      subtitle: 'Browse the company\'s shared client files and folders.',
+    },
     websitecontent: {
       group: 'Website',
       title: 'Frontend Content',
       subtitle: 'Manage editable text and image fields for the website frontend.',
     },
     mileageDashboard: {
-      group: 'Mileage',
+      group: 'Mileage Claims',
       title: 'Mileage Dashboard',
       subtitle: 'Monitor weekly mileage claims, payable totals, and exception flags.',
     },
     mileageNew: {
-      group: 'Mileage',
+      group: 'Mileage Claims',
       title: 'New Mileage Entry',
       subtitle: 'Record odometer readings, lunch-home deductions, and route mileage checks.',
     },
     mileageMine: {
-      group: 'Mileage',
+      group: 'Mileage Claims',
       title: 'My Mileage Entries',
       subtitle: 'Create, edit, and submit your mileage claims before weekly payroll processing.',
     },
     mileageWeekly: {
-      group: 'Mileage',
+      group: 'Mileage Claims',
       title: 'Weekly Mileage Submissions',
       subtitle: 'Submit Wednesday-to-Tuesday mileage forms for office review.',
     },
+    mileageNewSubmissions: {
+      group: 'Mileage Claims',
+      title: 'New Mileage Submissions',
+      subtitle: 'Driver portal submissions waiting on office verification, grouped by driver and period.',
+    },
     mileageReview: {
-      group: 'Mileage',
-      title: 'Admin Mileage Review',
-      subtitle: 'Approve, reject, or adjust flagged mileage exceptions.',
+      group: 'Mileage Claims',
+      title: 'Verify Mileage',
+      subtitle: 'Compare driver claims against Access Care Planning and assemble the expected total.',
+    },
+    mileageManagerApproval: {
+      group: 'Mileage Claims',
+      title: 'Manager Approval',
+      subtitle: 'Give final sign-off on verified mileage claims, with totals and payable amount ready.',
+    },
+    mileageCarerDirectory: {
+      group: 'Mileage Claims',
+      title: 'Carer Directory',
+      subtitle: 'Maintain carer home addresses used when verifying commute mileage.',
     },
     mileageReports: {
-      group: 'Mileage',
+      group: 'Mileage Claims',
       title: 'Mileage Reports',
       subtitle: 'Review payable mileage totals per carer and driver.',
     },
     mileageBreakdown: {
-      group: 'Mileage',
+      group: 'Mileage Claims',
       title: 'Weekly Payroll Summary',
       subtitle: 'Reconcile claimed, Access, pickup, expected, and payable mileage by carer.',
     },
     mileageSettings: {
-      group: 'Mileage',
+      group: 'Mileage Claims',
       title: 'Mileage Settings',
       subtitle: 'Adjust mileage rate, review threshold, and weekly submission settings.',
     },
@@ -302,11 +331,15 @@
     log: 'cars.maintenance',
     vehicles: 'cars.directory',
     'route-optimiser': 'routes.optimiser',
+    'google-drive': 'files.google_drive',
     'mileage-dashboard': 'mileage.claims',
     'mileage-new': 'mileage.claims',
     'mileage-mine': 'mileage.claims',
     'mileage-weekly': 'mileage.claims',
+    'mileage-new-submissions': 'mileage.claims',
     'mileage-review': 'mileage.claims',
+    'mileage-manager-approval': 'mileage.final_approval',
+    'mileage-carer-directory': 'mileage.claims',
     'mileage-reports': 'mileage.claims',
     'mileage-breakdown': 'mileage.claims',
     'mileage-settings': 'mileage.claims',
@@ -323,6 +356,7 @@
         items: [
             { text: 'Analytics', icon: 'mdi-chart-line', action: 'analytics-dashboard' },
             { text: 'Route Optimiser', icon: 'mdi-map-marker-path', action: 'route-optimiser' },
+            { text: 'Google Drive', icon: 'mdi-google-drive', action: 'google-drive' },
             { text: 'Website Content', icon: 'mdi-web', action: 'website-content' },
             { text: 'Reviews', icon: 'mdi-comment-text', action: 'comments' },
             { text: 'Users', icon: 'mdi-account-circle', action: 'users' },
@@ -344,7 +378,10 @@
             { text: 'My Mileage', icon: 'mdi-format-list-checks', action: 'mileage-mine' },
             { text: 'Weekly Submissions', icon: 'mdi-calendar-week', action: 'mileage-weekly' },
             { text: 'Weekly Breakdown', icon: 'mdi-table-large', action: 'mileage-breakdown' },
-            { text: 'Admin Review', icon: 'mdi-clipboard-check-outline', action: 'mileage-review' },
+            { text: 'New Mileage Submissions', icon: 'mdi-tray-full', action: 'mileage-new-submissions' },
+            { text: 'Verify Mileage', icon: 'mdi-clipboard-check-outline', action: 'mileage-review' },
+            { text: 'Manager Approval', icon: 'mdi-shield-check-outline', action: 'mileage-manager-approval' },
+            { text: 'Carer Directory', icon: 'mdi-card-account-details-outline', action: 'mileage-carer-directory' },
             { text: 'Reports', icon: 'mdi-file-chart-outline', action: 'mileage-reports' },
             { text: 'Settings', icon: 'mdi-cog-outline', action: 'mileage-settings' },
         ],
@@ -439,6 +476,7 @@
                 { routeName: 'maintenancelog', icon: 'mdi-car-wrench', label: 'Open Maintenance Log' },
                 { routeName: 'vehicledirectory', icon: 'mdi-car-info', label: 'Vehicle Directory' },
                 { routeName: 'routeoptimiser', icon: 'mdi-map-marker-path', label: 'Route Optimiser' },
+                { routeName: 'googledrive', icon: 'mdi-google-drive', label: 'Google Drive' },
                 { routeName: 'mileageDashboard', icon: 'mdi-speedometer', label: 'Mileage Dashboard' },
                 { routeName: 'mileageMine', icon: 'mdi-format-list-checks', label: 'My Mileage' },
                 { routeName: 'mileageReview', icon: 'mdi-clipboard-check-outline', label: 'Admin Mileage Review' },
@@ -627,6 +665,8 @@
                 this.goToNamedRoute('analyticsDashboard');
             } else if (action === 'route-optimiser') {
                 this.goToNamedRoute('routeoptimiser');
+            } else if (action === 'google-drive') {
+                this.goToNamedRoute('googledrive');
             } else if (action === 'website-content'){
                 this.goToNamedRoute('websitecontent');
             }
@@ -662,7 +702,10 @@
             'mileage-new': 'mileageNew',
             'mileage-mine': 'mileageMine',
             'mileage-weekly': 'mileageWeekly',
+            'mileage-new-submissions': 'mileageNewSubmissions',
             'mileage-review': 'mileageReview',
+            'mileage-manager-approval': 'mileageManagerApproval',
+            'mileage-carer-directory': 'mileageCarerDirectory',
             'mileage-reports': 'mileageReports',
             'mileage-breakdown': 'mileageBreakdown',
             'mileage-settings': 'mileageSettings',
@@ -677,6 +720,29 @@
         userActionClick(action) {
             if (action === 'user-management') {
                 this.goToNamedRoute('usermanagement');
+            }
+        },
+        openWhatsAppWeb() {
+            const width = 420;
+            const height = 650;
+            const left = Math.max(0, Math.round((window.screen.width - width) / 2));
+            const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+            const features = [
+                `width=${width}`,
+                `height=${height}`,
+                `left=${left}`,
+                `top=${top}`,
+                'resizable=yes',
+                'scrollbars=yes',
+                'noopener',
+            ].join(',');
+
+            const popup = window.open('https://web.whatsapp.com/', 'facilitate_whatsapp_web', features);
+            if (popup) {
+                popup.focus();
+            } else {
+                // Popup blocked by the browser: fall back to a normal tab.
+                window.open('https://web.whatsapp.com/', '_blank', 'noopener,noreferrer');
             }
         },
     }

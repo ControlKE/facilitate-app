@@ -28,6 +28,27 @@ header('Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, X-
 header('Access-Control-Allow-Credentials: true');
 header('Content-Type: application/json');
 
+// Safety net: turn any otherwise-uncaught error/exception (e.g. a mysqli
+// query error, which PHP 8.1+ throws by default instead of returning false)
+// into a JSON response instead of a blank Apache error page. Detail is only
+// exposed to local dev origins so production doesn't leak internals.
+set_exception_handler(static function (Throwable $exception) use ($isLocalOrigin) {
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+    }
+    $payload = [
+        'success' => false,
+        'message' => 'An unexpected server error occurred.',
+    ];
+    if ($isLocalOrigin) {
+        $payload['debugError'] = $exception->getMessage();
+        $payload['debugErrorFile'] = $exception->getFile() . ':' . $exception->getLine();
+    }
+    echo json_encode($payload);
+    exit;
+});
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(200);
     exit;
@@ -106,6 +127,8 @@ function permissionCatalog(): array
         ['key' => 'cars.maintenance', 'group' => 'Cars', 'label' => 'Maintenance Log', 'description' => 'Manage maintenance records and off-road vehicles.'],
         ['key' => 'cars.directory', 'group' => 'Cars', 'label' => 'Vehicle Directory', 'description' => 'View and update company vehicle directory.'],
         ['key' => 'routes.optimiser', 'group' => 'Care Planning', 'label' => 'Route Optimiser', 'description' => 'Manage client route runs and suggested visit order.'],
+        ['key' => 'files.google_drive', 'group' => 'Files', 'label' => 'Google Drive', 'description' => 'Browse shared client files and folders on Google Drive.'],
+        ['key' => 'mileage.final_approval', 'group' => 'Mileage', 'label' => 'Final Mileage Approval', 'description' => 'Give final sign-off on mileage claims after office verification against Access Care Planning.'],
         ['key' => 'website.content', 'group' => 'Website', 'label' => 'Website Content', 'description' => 'Edit website content registry and media values.'],
         ['key' => 'mileage.claims', 'group' => 'Mileage', 'label' => 'Mileage Claims', 'description' => 'Create, submit, review, and report weekly mileage claims.'],
         ['key' => 'users.manage_accounts', 'group' => 'Users', 'label' => 'Manage Accounts', 'description' => 'Create users and view account list.'],
@@ -151,6 +174,7 @@ function defaultRolePermissionMatrix(): array
             'cars.maintenance' => true,
             'cars.directory' => true,
             'routes.optimiser' => true,
+            'files.google_drive' => true,
             'mileage.claims' => true,
         ]),
         ROLE_CARER => array_merge($allDisabled, [

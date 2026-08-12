@@ -79,8 +79,13 @@ export const saveMileageEntry = async (payload) => {
 export const deleteMileageEntry = async (id) => unwrap(await http.post(endpoint('delete'), { id }), 'Failed to delete mileage entry.');
 export const submitMileageEntry = async (id) => unwrap(await http.post(endpoint('submit'), { id }), 'Failed to submit mileage entry.');
 export const reviewMileageEntry = async (id, payload) => unwrap(await http.post(endpoint('review'), { ...payload, id }), 'Failed to review mileage entry.');
+export const verifyMileageEntry = async (id, payload) => unwrap(await http.post(endpoint('verify'), { ...payload, id }), 'Failed to save mileage verification.');
+export const fetchCarers = async () => unwrap(await http.get(endpoint('listCarers')), 'Failed to load carer directory.');
+export const saveCarer = async (payload) => unwrap(await http.post(endpoint('saveCarer'), payload), 'Failed to save carer.');
+export const deleteCarer = async (id) => unwrap(await http.post(endpoint('deleteCarer'), { id }), 'Failed to delete carer.');
 export const fetchCurrentWeekMileage = async (params = {}) => unwrap(await http.get(endpoint('currentPayrollWeek', params)), 'Failed to load weekly mileage.');
 export const submitMileageWeek = async (payload) => unwrap(await http.post(endpoint('submitWeek'), payload), 'Failed to submit weekly mileage.');
+export const reviewMileageWeek = async (payload) => unwrap(await http.post(endpoint('reviewWeek'), payload), 'Failed to review weekly mileage.');
 export const fetchPendingMileageReviews = async (params = {}) => unwrap(await http.get(endpoint('pending', params)), 'Failed to load pending reviews.');
 export const fetchWeeklyMileageReport = async (params = {}) => unwrap(await http.get(endpoint('weeklyReport', params)), 'Failed to load mileage report.');
 export const fetchCurrentPayrollWeek = async (params = {}) => unwrap(await http.get(endpoint('currentPayrollWeek', params)), 'Failed to load current payroll week.');

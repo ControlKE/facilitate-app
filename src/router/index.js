@@ -35,14 +35,17 @@ import websiteContent from '../views/websiteContent.vue'
 import jobApplications from '../views/jobApplications.vue'
 import userManagement from '../views/userManagement.vue'
 import routeOptimiser from '../views/routeOptimiser.vue'
+import GoogleDriveBrowser from '../views/GoogleDriveBrowser.vue'
 import messageRouting from '../views/messageRouting.vue'
 import MileageDashboard from '../views/mileage/MileageDashboard.vue'
 import MileageEntryForm from '../views/mileage/MileageEntryForm.vue'
 import MyMileageEntries from '../views/mileage/MyMileageEntries.vue'
 import WeeklyMileageSubmissions from '../views/mileage/WeeklyMileageSubmissions.vue'
 import AdminMileageReview from '../views/mileage/AdminMileageReview.vue'
+import NewMileageSubmissions from '../views/mileage/NewMileageSubmissions.vue'
 import MileageReports from '../views/mileage/MileageReports.vue'
 import MileageSettings from '../views/mileage/MileageSettings.vue'
+import CarerDirectory from '../views/mileage/CarerDirectory.vue'
 import WeeklyMileageBreakdown from '../views/mileage/WeeklyMileageBreakdown.vue'
 
 const routes = [
@@ -227,6 +230,11 @@ const routes = [
             component: routeOptimiser
           },
           {
+            name: 'googledrive',
+            path: '/googledrive',
+            component: GoogleDriveBrowser
+          },
+          {
             name: 'cardashboard',
             path: '/cardashboard',
             component: carDashboard
@@ -257,9 +265,25 @@ const routes = [
             component: WeeklyMileageSubmissions
           },
           {
+            name: 'mileageNewSubmissions',
+            path: '/mileage/new-submissions',
+            component: NewMileageSubmissions
+          },
+          {
             name: 'mileageReview',
             path: '/mileage/admin-review',
             component: AdminMileageReview
+          },
+          {
+            name: 'mileageManagerApproval',
+            path: '/mileage/manager-approval',
+            component: AdminMileageReview,
+            props: { defaultStatus: 'pending_manager_approval' }
+          },
+          {
+            name: 'mileageCarerDirectory',
+            path: '/mileage/carer-directory',
+            component: CarerDirectory
           },
           {
             name: 'mileageReports',

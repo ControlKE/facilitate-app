@@ -95,6 +95,12 @@ function rowToEntry(array $row): array
         'id' => (int) $row['id'],
         'userId' => (int) $row['user_id'],
         'driverName' => (string) $row['driver_name'],
+        'source' => (string) ($row['source'] ?? 'office'),
+        'submitterPhone' => (string) ($row['submitter_phone'] ?? ''),
+        'submitterEmail' => (string) ($row['submitter_email'] ?? ''),
+        'photoPath' => $row['photo_path'] ?? null,
+        'driverOdometerStart' => isset($row['driver_odometer_start']) ? (float) $row['driver_odometer_start'] : null,
+        'driverOdometerEnd' => isset($row['driver_odometer_end']) ? (float) $row['driver_odometer_end'] : null,
         'workDate' => (string) $row['work_date'],
         'submissionWeekStart' => (string) $row['submission_week_start'],
         'submissionWeekEnd' => (string) $row['submission_week_end'],
@@ -104,6 +110,15 @@ function rowToEntry(array $row): array
         'odometerEnd' => (float) $row['odometer_end'],
         'claimedMileage' => (float) $row['claimed_mileage'],
         'expectedSystemMileage' => (float) $row['expected_system_mileage'],
+        'accessRunTotalMileage' => isset($row['access_run_total_mileage']) ? (float) $row['access_run_total_mileage'] : null,
+        'homeToFirstClientMileage' => isset($row['home_to_first_client_mileage']) ? (float) $row['home_to_first_client_mileage'] : null,
+        'lastClientToHomeMileage' => isset($row['last_client_to_home_mileage']) ? (float) $row['last_client_to_home_mileage'] : null,
+        'colleagueAddress' => (string) ($row['colleague_address'] ?? ''),
+        'isHalfDaySwap' => ((int) ($row['is_half_day_swap'] ?? 0)) === 1,
+        'middayColleagueSwapMileage' => isset($row['midday_colleague_swap_mileage']) ? (float) $row['midday_colleague_swap_mileage'] : null,
+        'middayDropoffColleagueAddress' => (string) ($row['midday_dropoff_colleague_address'] ?? ''),
+        'middayPickupColleagueAddress' => (string) ($row['midday_pickup_colleague_address'] ?? ''),
+        'verifiedAt' => $row['verified_at'] ?? null,
         'passengerPickupMileage' => (float) $row['passenger_pickup_mileage'],
         'middayPayableMileage' => (float) $row['midday_payable_mileage'],
         'middayMileageReason' => (string) ($row['midday_mileage_reason'] ?? ''),
@@ -242,6 +257,11 @@ function listEntries(mysqli $conn): array
         $types .= 's';
         $params[] = '%' . strv($_GET['driver']) . '%';
     }
+    if (isset($_GET['source']) && $_GET['source'] !== '') {
+        $where[] = 'source = ?';
+        $types .= 's';
+        $params[] = strv($_GET['source']);
+    }
     $sql = 'SELECT * FROM mileage_entries WHERE ' . implode(' AND ', $where) . ' ORDER BY work_date DESC, id DESC LIMIT 500';
     $stmt = $conn->prepare($sql);
     if ($types !== '') {
@@ -328,6 +348,379 @@ function saveEntry(mysqli $conn, array $payload): array
     }
     $entryId = $id > 0 ? $id : (int) $conn->insert_id;
     return getEntry($conn, $entryId) ?: [];
+}
+
+function ensureCarerDirectoryTable(mysqli $conn): void
+{
+    $sql = <<<SQL
+CREATE TABLE IF NOT EXISTS carer_directory (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    driver_name VARCHAR(190) NOT NULL,
+    home_address VARCHAR(255) NOT NULL DEFAULT '',
+    notes VARCHAR(255) NULL DEFAULT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_carer_directory_name (driver_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL;
+    // Best-effort fallback if server/db/mileage_verification_workflow.sql
+    // hasn't been run yet -- mirrors the pattern used elsewhere in this file.
+    @$conn->query($sql);
+
+    // Structured bio-data columns (first/last name, broken-out address).
+    // driver_name/home_address stay populated (composed from these) so
+    // every other lookup in the app that matches/reads on those two
+    // columns keeps working unchanged.
+    $columns = [
+        'first_name' => "ALTER TABLE carer_directory ADD COLUMN first_name VARCHAR(100) NOT NULL DEFAULT '' AFTER driver_name",
+        'last_name' => "ALTER TABLE carer_directory ADD COLUMN last_name VARCHAR(100) NOT NULL DEFAULT '' AFTER first_name",
+        'address_line1' => "ALTER TABLE carer_directory ADD COLUMN address_line1 VARCHAR(190) NULL AFTER home_address",
+        'address_line2' => "ALTER TABLE carer_directory ADD COLUMN address_line2 VARCHAR(190) NULL AFTER address_line1",
+        'town_city' => "ALTER TABLE carer_directory ADD COLUMN town_city VARCHAR(120) NULL AFTER address_line2",
+        'county' => "ALTER TABLE carer_directory ADD COLUMN county VARCHAR(120) NULL AFTER town_city",
+        'postcode' => "ALTER TABLE carer_directory ADD COLUMN postcode VARCHAR(20) NULL AFTER county",
+    ];
+    foreach ($columns as $columnName => $alterSql) {
+        $check = $conn->query("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'carer_directory' AND COLUMN_NAME = '{$columnName}' LIMIT 1");
+        if ($check !== false && $check->num_rows > 0) {
+            continue;
+        }
+        @$conn->query($alterSql);
+    }
+}
+
+function listCarers(mysqli $conn): array
+{
+    ensureCarerDirectoryTable($conn);
+    $result = $conn->query('SELECT id, driver_name, first_name, last_name, home_address, address_line1, address_line2, town_city, county, postcode, notes, is_active FROM carer_directory ORDER BY driver_name ASC');
+    $rows = [];
+    if ($result !== false) {
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = [
+                'id' => (int) $row['id'],
+                'driverName' => (string) $row['driver_name'],
+                'firstName' => (string) ($row['first_name'] ?? ''),
+                'lastName' => (string) ($row['last_name'] ?? ''),
+                'homeAddress' => (string) $row['home_address'],
+                'addressLine1' => (string) ($row['address_line1'] ?? ''),
+                'addressLine2' => (string) ($row['address_line2'] ?? ''),
+                'townCity' => (string) ($row['town_city'] ?? ''),
+                'county' => (string) ($row['county'] ?? ''),
+                'postcode' => (string) ($row['postcode'] ?? ''),
+                'notes' => (string) ($row['notes'] ?? ''),
+                'isActive' => ((int) $row['is_active']) === 1,
+            ];
+        }
+    }
+    return $rows;
+}
+
+function saveCarer(mysqli $conn, array $payload): array
+{
+    ensureCarerDirectoryTable($conn);
+    $id = intv($payload['id'] ?? 0);
+    $firstName = strv($payload['firstName'] ?? '');
+    $lastName = strv($payload['lastName'] ?? '');
+    if ($firstName === '' || $lastName === '') {
+        throw new RuntimeException('First name and last name are required.');
+    }
+    $driverName = trim($firstName . ' ' . $lastName);
+
+    $addressLine1 = strv($payload['addressLine1'] ?? '');
+    $addressLine2 = strv($payload['addressLine2'] ?? '');
+    $townCity = strv($payload['townCity'] ?? '');
+    $county = strv($payload['county'] ?? '');
+    $postcode = strv($payload['postcode'] ?? '');
+    // home_address stays populated as a composed one-line string so the
+    // rest of the app (e.g. the verification screen's address lookup)
+    // keeps working without needing to know about the individual parts.
+    $homeAddress = implode(', ', array_filter([$addressLine1, $addressLine2, $townCity, $county, $postcode], fn ($part) => $part !== ''));
+
+    $notes = strv($payload['notes'] ?? '');
+    $isActive = boolv($payload['isActive'] ?? true) ? 1 : 0;
+
+    if ($id > 0) {
+        $stmt = $conn->prepare('UPDATE carer_directory SET driver_name = ?, first_name = ?, last_name = ?, home_address = ?, address_line1 = ?, address_line2 = ?, town_city = ?, county = ?, postcode = ?, notes = ?, is_active = ? WHERE id = ?');
+        if ($stmt === false) {
+            throw new RuntimeException('Failed to prepare carer update.');
+        }
+        $stmt->bind_param(
+            'ssssssssssii',
+            $driverName,
+            $firstName,
+            $lastName,
+            $homeAddress,
+            $addressLine1,
+            $addressLine2,
+            $townCity,
+            $county,
+            $postcode,
+            $notes,
+            $isActive,
+            $id
+        );
+    } else {
+        $stmt = $conn->prepare('INSERT INTO carer_directory (driver_name, first_name, last_name, home_address, address_line1, address_line2, town_city, county, postcode, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE first_name = VALUES(first_name), last_name = VALUES(last_name), home_address = VALUES(home_address), address_line1 = VALUES(address_line1), address_line2 = VALUES(address_line2), town_city = VALUES(town_city), county = VALUES(county), postcode = VALUES(postcode), notes = VALUES(notes), is_active = VALUES(is_active)');
+        if ($stmt === false) {
+            throw new RuntimeException('Failed to prepare carer insert.');
+        }
+        $stmt->bind_param(
+            'ssssssssssi',
+            $driverName,
+            $firstName,
+            $lastName,
+            $homeAddress,
+            $addressLine1,
+            $addressLine2,
+            $townCity,
+            $county,
+            $postcode,
+            $notes,
+            $isActive
+        );
+    }
+    if (!$stmt->execute()) {
+        $message = $stmt->error ?: 'Failed to save carer.';
+        $stmt->close();
+        throw new RuntimeException($message);
+    }
+    $stmt->close();
+    return ['success' => true];
+}
+
+function deleteCarer(mysqli $conn, int $id): void
+{
+    ensureCarerDirectoryTable($conn);
+    $stmt = $conn->prepare('DELETE FROM carer_directory WHERE id = ?');
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function verifyEntry(mysqli $conn, int $id, array $payload): ?array
+{
+    $entry = getEntry($conn, $id);
+    if ($entry === null) {
+        return null;
+    }
+
+    $accessRunTotal = numv($payload['accessRunTotalMileage'] ?? 0);
+    $homeToFirstClient = numv($payload['homeToFirstClientMileage'] ?? 0);
+    $lastClientToHome = numv($payload['lastClientToHomeMileage'] ?? 0);
+    $colleagueAddress = strv($payload['colleagueAddress'] ?? '');
+    $isHalfDaySwap = !empty($payload['isHalfDaySwap']) ? 1 : 0;
+    $middayColleagueSwap = $isHalfDaySwap ? numv($payload['middayColleagueSwapMileage'] ?? 0) : 0.0;
+    $middayDropoffColleagueAddress = $isHalfDaySwap ? strv($payload['middayDropoffColleagueAddress'] ?? '') : '';
+    $middayPickupColleagueAddress = $isHalfDaySwap ? strv($payload['middayPickupColleagueAddress'] ?? '') : '';
+
+    // expected_system_mileage is the sum of the Access route total plus the
+    // home<->work commute legs Access doesn't account for, plus the midday
+    // colleague-swap leg on half-day handover shifts (dropping the morning
+    // colleague home and collecting the afternoon colleague on the way back
+    // out) -- also not on the Access route. The existing passenger_pickup_mileage
+    // field (the optional flat allowance) is added on top of this below, same
+    // as it already was.
+    $expectedSystemMileage = miles(max(0, $accessRunTotal + $homeToFirstClient + $lastClientToHome + $middayColleagueSwap));
+    $expectedTotal = miles($expectedSystemMileage + $entry['passengerPickupMileage']);
+    $differenceFromSystem = miles($entry['adjustedClaimedMileage'] - $expectedTotal);
+
+    $settings = getSettings($conn);
+    $threshold = max(0, (float) ($settings['thresholdMiles'] ?? DEFAULT_THRESHOLD_MILES));
+    $thresholdFlag = $entry['adjustedClaimedMileage'] > ($expectedTotal + $threshold);
+
+    $stmt = $conn->prepare('UPDATE mileage_entries SET
+        access_run_total_mileage = ?, home_to_first_client_mileage = ?, last_client_to_home_mileage = ?,
+        colleague_address = ?, is_half_day_swap = ?, midday_colleague_swap_mileage = ?,
+        midday_dropoff_colleague_address = ?, midday_pickup_colleague_address = ?,
+        expected_system_mileage = ?, difference_from_system = ?,
+        threshold_flag = ?, explanation_required = ?, admin_status = \'pending_manager_approval\', verified_at = NOW()
+        WHERE id = ? AND deleted_at IS NULL');
+    if ($stmt === false) {
+        throw new RuntimeException('Failed to prepare verification query.');
+    }
+    $thresholdFlagInt = $thresholdFlag ? 1 : 0;
+    $stmt->bind_param(
+        'dddsidssddiii',
+        $accessRunTotal,
+        $homeToFirstClient,
+        $lastClientToHome,
+        $colleagueAddress,
+        $isHalfDaySwap,
+        $middayColleagueSwap,
+        $middayDropoffColleagueAddress,
+        $middayPickupColleagueAddress,
+        $expectedSystemMileage,
+        $differenceFromSystem,
+        $thresholdFlagInt,
+        $thresholdFlagInt,
+        $id
+    );
+    if (!$stmt->execute()) {
+        $message = $stmt->error ?: 'Failed to save verification.';
+        $stmt->close();
+        throw new RuntimeException($message);
+    }
+    $stmt->close();
+
+    return getEntry($conn, $id);
+}
+
+function reviewEntry(mysqli $conn, int $id, array $payload): ?array
+{
+    $entry = getEntry($conn, $id);
+    if ($entry === null) {
+        return null;
+    }
+
+    $status = strv($payload['status'] ?? 'approved');
+    if (!in_array($status, ['approved', 'rejected', 'adjusted'], true)) {
+        $status = 'approved';
+    }
+    $adminNotes = strv($payload['adminNotes'] ?? '');
+
+    if ($status === 'rejected') {
+        $finalMileage = 0.0;
+    } elseif ($status === 'adjusted') {
+        $finalMileage = numv($payload['adminAdjustedPayableMileage'] ?? $entry['adjustedClaimedMileage']);
+    } else {
+        $expectedTotal = $entry['expectedSystemMileage'] + $entry['passengerPickupMileage'];
+        $finalMileage = max($entry['adjustedClaimedMileage'], $expectedTotal);
+    }
+    $finalMileage = miles(max(0, $finalMileage));
+    $finalAmount = round($finalMileage * $entry['mileageRate'], 2);
+    $adjustedParam = $status === 'adjusted' ? $finalMileage : null;
+
+    $stmt = $conn->prepare('UPDATE mileage_entries SET
+        admin_status = ?, admin_adjusted_payable_mileage = ?, final_payable_mileage = ?,
+        final_payable_amount = ?, admin_notes = ?, reviewed_at = NOW()
+        WHERE id = ? AND deleted_at IS NULL');
+    if ($stmt === false) {
+        throw new RuntimeException('Failed to prepare review query.');
+    }
+    $stmt->bind_param('sdddsi', $status, $adjustedParam, $finalMileage, $finalAmount, $adminNotes, $id);
+    if (!$stmt->execute()) {
+        $stmt->close();
+        throw new RuntimeException($stmt->error ?: 'Failed to save mileage review.');
+    }
+    $stmt->close();
+
+    return getEntry($conn, $id);
+}
+
+function weekSubmissionSummary(mysqli $conn, int $userId, string $weekStart, string $weekEnd): array
+{
+    $stmt = $conn->prepare('SELECT
+        ROUND(COALESCE(SUM(claimed_mileage),0),2) AS claimed,
+        ROUND(COALESCE(SUM(adjusted_claimed_mileage),0),2) AS adjusted,
+        ROUND(COALESCE(SUM(expected_system_mileage + passenger_pickup_mileage),0),2) AS expected,
+        ROUND(COALESCE(SUM(final_payable_mileage),0),2) AS payable,
+        ROUND(COALESCE(SUM(final_payable_amount),0),2) AS amount,
+        SUM(threshold_flag) AS flaggedCount
+      FROM mileage_entries
+      WHERE user_id = ? AND submission_week_start = ? AND submission_week_end = ? AND deleted_at IS NULL');
+    $stmt->bind_param('iss', $userId, $weekStart, $weekEnd);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    return [
+        'claimed' => (float) ($row['claimed'] ?? 0),
+        'adjusted' => (float) ($row['adjusted'] ?? 0),
+        'expected' => (float) ($row['expected'] ?? 0),
+        'payable' => (float) ($row['payable'] ?? 0),
+        'amount' => (float) ($row['amount'] ?? 0),
+        'flaggedCount' => (int) ($row['flaggedCount'] ?? 0),
+    ];
+}
+
+function submitWeek(mysqli $conn, int $userId, string $driverName, string $weekStart, string $weekEnd): array
+{
+    $stmt = $conn->prepare("UPDATE mileage_entries
+        SET admin_status = IF(threshold_flag = 1, 'pending_review', 'submitted'),
+            submitted_at = COALESCE(submitted_at, NOW())
+        WHERE user_id = ? AND submission_week_start = ? AND submission_week_end = ?
+          AND admin_status = 'draft' AND deleted_at IS NULL");
+    $stmt->bind_param('iss', $userId, $weekStart, $weekEnd);
+    $stmt->execute();
+    $updatedCount = $stmt->affected_rows;
+    $stmt->close();
+
+    $summary = weekSubmissionSummary($conn, $userId, $weekStart, $weekEnd);
+
+    $stmt = $conn->prepare("INSERT INTO mileage_submissions (
+        user_id, driver_name, week_start, week_end, status,
+        total_claimed_mileage, total_adjusted_claimed_mileage, total_expected_system_mileage,
+        total_final_payable_mileage, total_payable_amount, flagged_count, submitted_at
+    ) VALUES (?, ?, ?, ?, 'submitted', ?, ?, ?, ?, ?, ?, NOW())
+    ON DUPLICATE KEY UPDATE
+        status = 'submitted',
+        total_claimed_mileage = VALUES(total_claimed_mileage),
+        total_adjusted_claimed_mileage = VALUES(total_adjusted_claimed_mileage),
+        total_expected_system_mileage = VALUES(total_expected_system_mileage),
+        total_final_payable_mileage = VALUES(total_final_payable_mileage),
+        total_payable_amount = VALUES(total_payable_amount),
+        flagged_count = VALUES(flagged_count),
+        submitted_at = NOW()");
+    if ($stmt === false) {
+        throw new RuntimeException('Failed to prepare weekly submission query.');
+    }
+    $stmt->bind_param(
+        'isssdddddi',
+        $userId,
+        $driverName,
+        $weekStart,
+        $weekEnd,
+        $summary['claimed'],
+        $summary['adjusted'],
+        $summary['expected'],
+        $summary['payable'],
+        $summary['amount'],
+        $summary['flaggedCount']
+    );
+    if (!$stmt->execute()) {
+        $stmt->close();
+        throw new RuntimeException($stmt->error ?: 'Failed to save weekly submission.');
+    }
+    $stmt->close();
+
+    return ['updatedCount' => $updatedCount, 'summary' => $summary];
+}
+
+function reviewWeek(mysqli $conn, int $userId, string $weekStart, string $weekEnd, array $payload): array
+{
+    $status = strv($payload['status'] ?? 'approved');
+    if (!in_array($status, ['approved', 'rejected'], true)) {
+        $status = 'approved';
+    }
+    $adminNotes = strv($payload['adminNotes'] ?? '');
+
+    $stmt = $conn->prepare("SELECT id FROM mileage_entries
+        WHERE user_id = ? AND submission_week_start = ? AND submission_week_end = ?
+          AND admin_status IN ('submitted','pending_review') AND deleted_at IS NULL");
+    $stmt->bind_param('iss', $userId, $weekStart, $weekEnd);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $ids = [];
+    while ($row = $result->fetch_assoc()) {
+        $ids[] = (int) $row['id'];
+    }
+    $stmt->close();
+
+    foreach ($ids as $entryId) {
+        reviewEntry($conn, $entryId, ['status' => $status, 'adminNotes' => $adminNotes]);
+    }
+
+    $stmt = $conn->prepare('UPDATE mileage_submissions SET status = ? WHERE user_id = ? AND week_start = ? AND week_end = ?');
+    if ($stmt !== false) {
+        $stmt->bind_param('siss', $status, $userId, $weekStart, $weekEnd);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    return ['reviewedCount' => count($ids), 'status' => $status];
 }
 
 function submitEntry(mysqli $conn, int $id): ?array
@@ -451,6 +844,68 @@ function weeklyBreakdown(mysqli $conn): array
     return ['week' => $week, 'rows' => $rows, 'totals' => $totals, 'statusCounts' => $statusCounts];
 }
 
+function weeklyReport(mysqli $conn): array
+{
+    $where = ['deleted_at IS NULL'];
+    $types = '';
+    $params = [];
+    if (isset($_GET['weekStart']) && $_GET['weekStart'] !== '') {
+        $where[] = 'submission_week_start >= ?';
+        $types .= 's';
+        $params[] = strv($_GET['weekStart']);
+    }
+    if (isset($_GET['weekEnd']) && $_GET['weekEnd'] !== '') {
+        $where[] = 'submission_week_end <= ?';
+        $types .= 's';
+        $params[] = strv($_GET['weekEnd']);
+    }
+    if (isset($_GET['driver']) && $_GET['driver'] !== '') {
+        $where[] = 'driver_name LIKE ?';
+        $types .= 's';
+        $params[] = '%' . strv($_GET['driver']) . '%';
+    }
+    $whereSql = implode(' AND ', $where);
+    $sql = "SELECT
+        user_id AS userId, driver_name AS driverName,
+        submission_week_start AS weekStart, submission_week_end AS weekEnd,
+        COUNT(*) AS entryCount,
+        ROUND(COALESCE(SUM(claimed_mileage),0),2) AS totalClaimedMileage,
+        ROUND(COALESCE(SUM(adjusted_claimed_mileage),0),2) AS totalAdjustedClaimedMileage,
+        ROUND(COALESCE(SUM(expected_system_mileage + passenger_pickup_mileage),0),2) AS totalExpectedSystemMileage,
+        ROUND(COALESCE(SUM(final_payable_mileage),0),2) AS totalFinalPayableMileage,
+        ROUND(COALESCE(SUM(final_payable_amount),0),2) AS totalPayableAmount,
+        SUM(threshold_flag) AS flaggedCount
+      FROM mileage_entries WHERE {$whereSql}
+      GROUP BY user_id, driver_name, submission_week_start, submission_week_end
+      ORDER BY submission_week_start DESC, driver_name ASC";
+    $stmt = $conn->prepare($sql);
+    if ($stmt === false) {
+        throw new RuntimeException('Failed to prepare weekly report query.');
+    }
+    if ($types !== '') {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $rows = [];
+    while ($row = $result->fetch_assoc()) {
+        $rows[] = [
+            'userId' => (int) $row['userId'],
+            'driverName' => (string) $row['driverName'],
+            'weekStart' => (string) $row['weekStart'],
+            'weekEnd' => (string) $row['weekEnd'],
+            'entryCount' => (int) $row['entryCount'],
+            'totalClaimedMileage' => (float) $row['totalClaimedMileage'],
+            'totalAdjustedClaimedMileage' => (float) $row['totalAdjustedClaimedMileage'],
+            'totalExpectedSystemMileage' => (float) $row['totalExpectedSystemMileage'],
+            'totalFinalPayableMileage' => (float) $row['totalFinalPayableMileage'],
+            'totalPayableAmount' => (float) $row['totalPayableAmount'],
+            'flaggedCount' => (int) $row['flaggedCount'],
+        ];
+    }
+    return $rows;
+}
+
 function updateSettings(mysqli $conn, array $payload): array
 {
     $items = [
@@ -491,11 +946,46 @@ try {
         jsonResponse(['success' => true]);
     }
     if ($action === 'submit') jsonResponse(['success' => true, 'entry' => submitEntry($conn, intv($_GET['id'] ?? $payload['id'] ?? 0))]);
+    if ($action === 'review') {
+        $id = intv($_GET['id'] ?? $payload['id'] ?? 0);
+        $entry = reviewEntry($conn, $id, $payload);
+        jsonResponse($entry ? ['success' => true, 'entry' => $entry] : ['success' => false, 'message' => 'Mileage entry not found.'], $entry ? 200 : 404);
+    }
+    if ($action === 'verify') {
+        $id = intv($_GET['id'] ?? $payload['id'] ?? 0);
+        $entry = verifyEntry($conn, $id, $payload);
+        jsonResponse($entry ? ['success' => true, 'entry' => $entry] : ['success' => false, 'message' => 'Mileage entry not found.'], $entry ? 200 : 404);
+    }
+    if ($action === 'listCarers') jsonResponse(['success' => true, 'carers' => listCarers($conn)]);
+    if ($action === 'saveCarer') jsonResponse(saveCarer($conn, $payload) + ['carers' => listCarers($conn)]);
+    if ($action === 'deleteCarer') {
+        deleteCarer($conn, intv($_GET['id'] ?? $payload['id'] ?? 0));
+        jsonResponse(['success' => true, 'carers' => listCarers($conn)]);
+    }
+    if ($action === 'submitWeek') {
+        $userId = intv($payload['userId'] ?? 0);
+        $driverName = strv($payload['driverName'] ?? 'Current User', 'Current User');
+        $weekStart = strv($payload['weekStart'] ?? '');
+        $weekEnd = strv($payload['weekEnd'] ?? '');
+        if ($userId <= 0 || $weekStart === '' || $weekEnd === '') {
+            jsonResponse(['success' => false, 'message' => 'User, week start, and week end are required.'], 422);
+        }
+        jsonResponse(['success' => true] + submitWeek($conn, $userId, $driverName, $weekStart, $weekEnd));
+    }
+    if ($action === 'reviewWeek') {
+        $userId = intv($payload['userId'] ?? 0);
+        $weekStart = strv($payload['weekStart'] ?? '');
+        $weekEnd = strv($payload['weekEnd'] ?? '');
+        if ($userId <= 0 || $weekStart === '' || $weekEnd === '') {
+            jsonResponse(['success' => false, 'message' => 'User, week start, and week end are required.'], 422);
+        }
+        jsonResponse(['success' => true] + reviewWeek($conn, $userId, $weekStart, $weekEnd, $payload));
+    }
     if ($action === 'currentPayrollWeek') jsonResponse(['success' => true, 'week' => getSubmissionWeek(strv($_GET['date'] ?? date('Y-m-d')))]);
     if ($action === 'weeklyBreakdown') jsonResponse(['success' => true, 'breakdown' => weeklyBreakdown($conn)]);
     if ($action === 'settings') jsonResponse(['success' => true, 'settings' => getSettings($conn)]);
     if ($action === 'updateSettings') jsonResponse(['success' => true, 'settings' => updateSettings($conn, $payload)]);
-    if ($action === 'weeklyReport') jsonResponse(['success' => true, 'report' => []]);
+    if ($action === 'weeklyReport') jsonResponse(['success' => true, 'report' => weeklyReport($conn)]);
     if ($action === 'pending') {
         $_GET['status'] = 'pending_review';
         jsonResponse(['success' => true, 'entries' => listEntries($conn)]);

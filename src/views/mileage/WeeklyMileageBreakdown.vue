@@ -81,8 +81,28 @@
                 <template #item.finalPayableAmountTotal="{ item }">{{ gbp(item.finalPayableAmountTotal) }}</template>
                 <template #item.actions="{ item }">
                   <div class="d-flex ga-1">
-                    <v-btn size="small" variant="text" icon="mdi-eye-outline" @click="openDetails(item)" />
-                    <v-btn size="small" variant="text" icon="mdi-clipboard-check-outline" @click="$router.push({ name: 'mileageReview', query: { driver: item.driverName } })" />
+                    <v-btn size="small" variant="text" icon="mdi-eye-outline" @click="openDetails(item)" title="View daily breakdown" />
+                    <v-btn size="small" variant="text" icon="mdi-clipboard-check-outline" @click="$router.push({ name: 'mileageReview', query: { driver: item.driverName } })" title="Review individual entries" />
+                    <v-btn
+                      v-if="item.weeklyStatus !== 'ready'"
+                      size="small"
+                      variant="text"
+                      color="success"
+                      icon="mdi-check-circle-outline"
+                      :loading="weekActionLoading === `${item.userId}-approved`"
+                      title="Approve whole week"
+                      @click="reviewWholeWeek(item, 'approved')"
+                    />
+                    <v-btn
+                      v-if="item.weeklyStatus !== 'ready'"
+                      size="small"
+                      variant="text"
+                      color="error"
+                      icon="mdi-close-circle-outline"
+                      :loading="weekActionLoading === `${item.userId}-rejected`"
+                      title="Reject whole week"
+                      @click="reviewWholeWeek(item, 'rejected')"
+                    />
                   </div>
                 </template>
                 <template #bottom>
@@ -178,6 +198,7 @@ import {
   fetchWeeklyMileageBreakdown,
   gbp,
   miles,
+  reviewMileageWeek,
   statusColor,
   statusLabel,
 } from '../../services/mileageService';
@@ -190,6 +211,7 @@ const totals = ref({});
 const week = ref({ weekStart: '', weekEnd: '' });
 const detailDialog = ref(false);
 const selectedRow = ref(null);
+const weekActionLoading = ref('');
 const filters = reactive({
   weekStart: '',
   driver: '',
@@ -272,6 +294,28 @@ const load = async () => {
 const openDetails = (row) => {
   selectedRow.value = row;
   detailDialog.value = true;
+};
+
+const reviewWholeWeek = async (row, status) => {
+  const verb = status === 'approved' ? 'approve' : 'reject';
+  if (!window.confirm(`${verb === 'approve' ? 'Approve' : 'Reject'} all ${row.entryCount} entries for ${row.driverName} this week?`)) {
+    return;
+  }
+  weekActionLoading.value = `${row.userId}-${status}`;
+  error.value = '';
+  try {
+    await reviewMileageWeek({
+      userId: row.userId,
+      weekStart: week.value.weekStart,
+      weekEnd: week.value.weekEnd,
+      status,
+    });
+    await load();
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : `Failed to ${verb} the week.`;
+  } finally {
+    weekActionLoading.value = '';
+  }
 };
 
 const exportCsv = () => {

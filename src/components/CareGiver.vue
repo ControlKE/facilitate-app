@@ -359,6 +359,107 @@
 		</div>
 	</section>
 	<!-- End Call To Action Section Two -->
+
+	<!-- Mileage Submission Section -->
+	<section class="call-to-action-section-two style-three">
+		<div class="auto-container">
+			<div class="inner-container">
+				<h2>Already Working With Us? Submit Your Mileage</h2>
+				<div class="text">Log your mileage day by day, matching your paper mileage log -- no account or login needed. The office will review your submission before payment.</div>
+				<div class="outer-box clearfix">
+					<div class="btn-box">
+						<div class="pa-0 text-center">
+							<v-dialog v-model="mileageDialog" max-width="920px">
+								<template v-slot:activator="{ props: activatorProps }">
+									<div class="theme-btn btn-style-one" v-bind="activatorProps"><span class="txt">Submit Mileage</span></div>
+								</template>
+
+								<v-card max-width="920px">
+									<v-toolbar color="#AB207D" title="Submit Your Mileage"></v-toolbar>
+									<v-card-text>
+										<v-row dense>
+											<v-col cols="12" md="6">
+												<v-text-field v-model="mileageDriverName" label="Your Full Name*" variant="outlined" required></v-text-field>
+											</v-col>
+											<v-col cols="12" md="6">
+												<v-text-field v-model="mileagePhone" label="Phone Number" variant="outlined"></v-text-field>
+											</v-col>
+										</v-row>
+										<v-text-field v-model="mileageEmail" label="Email (optional, for confirmation)" variant="outlined"></v-text-field>
+
+										<div class="text-subtitle-2 mb-2">Add one row per day, matching your paper mileage log, then submit the whole batch. Only Date and Mileage are required -- the rest are optional.</div>
+										<v-row dense>
+											<v-col cols="12" md="3">
+												<v-text-field v-model="mileageWorkDate" label="Date*" type="date" variant="outlined" density="compact" hide-details></v-text-field>
+											</v-col>
+											<v-col cols="12" md="3">
+												<v-text-field v-model="mileageStartingLocation" label="Starting Location" variant="outlined" density="compact" hide-details></v-text-field>
+											</v-col>
+											<v-col cols="12" md="3">
+												<v-text-field v-model="mileageDestination" label="Destination" variant="outlined" density="compact" hide-details></v-text-field>
+											</v-col>
+											<v-col cols="12" md="3">
+												<v-text-field v-model="mileageMiles" label="Mileage*" type="number" min="0" variant="outlined" density="compact" hide-details></v-text-field>
+											</v-col>
+											<v-col cols="12" md="3">
+												<v-text-field v-model.number="mileageOdometerStart" label="Odometer Start" type="number" min="0" variant="outlined" density="compact" hide-details></v-text-field>
+											</v-col>
+											<v-col cols="12" md="3">
+												<v-text-field v-model.number="mileageOdometerEnd" label="Odometer End" type="number" min="0" variant="outlined" density="compact" hide-details></v-text-field>
+											</v-col>
+											<v-col cols="12" md="5">
+												<v-text-field v-model="mileageNotes" label="Description / Notes" variant="outlined" density="compact" hide-details></v-text-field>
+											</v-col>
+											<v-col cols="12" md="1" class="text-center">
+												<v-btn color="primary" variant="tonal" icon="mdi-plus" title="Add entry" @click="addMileageEntryRow"></v-btn>
+											</v-col>
+										</v-row>
+
+										<div v-if="mileageEntries.length" class="mt-4" style="overflow-x: auto">
+											<v-table density="compact">
+												<thead><tr><th>Date</th><th>From</th><th>To</th><th>Odo Start</th><th>Odo End</th><th>Mileage</th><th>Notes</th><th style="width:48px"></th></tr></thead>
+												<tbody>
+													<tr v-for="(row, i) in mileageEntries" :key="i">
+														<td>{{ row.workDate }}</td>
+														<td>{{ row.startingLocation }}</td>
+														<td>{{ row.destination }}</td>
+														<td>{{ row.odometerStart }}</td>
+														<td>{{ row.odometerEnd }}</td>
+														<td>{{ row.mileage }}</td>
+														<td>{{ row.notes }}</td>
+														<td><v-btn size="small" variant="text" icon="mdi-delete" @click="mileageEntries.splice(i, 1)"></v-btn></td>
+													</tr>
+												</tbody>
+											</v-table>
+										</div>
+										<div v-else class="text-caption text-medium-emphasis mt-3">
+											No entries added yet -- fill in a date and mileage above, then click the + button.
+										</div>
+									</v-card-text>
+
+									<v-divider></v-divider>
+
+									<v-card-actions>
+										<v-spacer></v-spacer>
+										<v-btn color="primary" text="CANCEL" @click="mileageDialog = false"></v-btn>
+										<v-btn
+											color="success"
+											:text="`SUBMIT (${mileageEntries.length})`"
+											:loading="savingMileage"
+											:disabled="savingMileage"
+											@click="submitDriverMileageForm"
+										></v-btn>
+									</v-card-actions>
+								</v-card>
+							</v-dialog>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+	<!-- End Mileage Submission Section -->
+
     <div class="lower-content">
     <!-- <h3>How to apply.</h3>
     <div class="light-text">If you feel you have the right attributes to work for us and desire to succeed within the friendly team here at Facilitate Care Services then why not contact us by using one of the following methods:
@@ -488,6 +589,7 @@ import { VDateInput } from 'vuetify/labs/VDateInput'
 </script>
 <script >
 import axios from 'axios'
+import { submitDriverMileage } from '../services/driverMileageService'
 
 
 export default {
@@ -508,6 +610,20 @@ export default {
 				text: '',
 				type: 'success',
 			},
+
+			mileageDialog: false,
+			savingMileage: false,
+			mileageDriverName: '',
+			mileagePhone: '',
+			mileageEmail: '',
+			mileageWorkDate: new Date().toISOString().slice(0, 10),
+			mileageStartingLocation: '',
+			mileageDestination: '',
+			mileageOdometerStart: null,
+			mileageOdometerEnd: null,
+			mileageMiles: null,
+			mileageNotes: '',
+			mileageEntries: [],
 
 			titlecb: '',
 			FNametc: '',
@@ -676,6 +792,115 @@ export default {
 				this.showFormFeedback(message, 'error');
 			} finally {
 				this.savingJobApplication = false;
+			}
+		},
+
+		resetMileageForm() {
+			this.mileageDriverName = '';
+			this.mileagePhone = '';
+			this.mileageEmail = '';
+			this.mileageWorkDate = new Date().toISOString().slice(0, 10);
+			this.mileageStartingLocation = '';
+			this.mileageDestination = '';
+			this.mileageOdometerStart = null;
+			this.mileageOdometerEnd = null;
+			this.mileageMiles = null;
+			this.mileageNotes = '';
+			this.mileageEntries = [];
+		},
+
+		addMileageEntryRow() {
+			if (!this.mileageWorkDate) {
+				this.showFormFeedback('Please select the date for this entry.', 'error');
+				return;
+			}
+			if (!this.mileageMiles || Number(this.mileageMiles) <= 0) {
+				this.showFormFeedback('Please enter the mileage for this entry.', 'error');
+				return;
+			}
+
+			this.mileageEntries.push({
+				workDate: this.mileageWorkDate,
+				startingLocation: this.mileageStartingLocation || '',
+				destination: this.mileageDestination || '',
+				odometerStart: this.mileageOdometerStart ?? '',
+				odometerEnd: this.mileageOdometerEnd ?? '',
+				mileage: Number(this.mileageMiles),
+				notes: this.mileageNotes || '',
+			});
+
+			// Keep the driver's name/phone/email, but clear the row inputs so
+			// the next day's entry starts fresh.
+			this.mileageStartingLocation = '';
+			this.mileageDestination = '';
+			this.mileageOdometerStart = null;
+			this.mileageOdometerEnd = null;
+			this.mileageMiles = null;
+			this.mileageNotes = '';
+		},
+
+		buildDriverMileageFormData(entry) {
+			const formData = new FormData();
+			formData.append('submissionType', 'single');
+			formData.append('driverName', this.mileageDriverName);
+			formData.append('phone', this.mileagePhone || '');
+			formData.append('email', this.mileageEmail || '');
+			formData.append('workDate', entry.workDate);
+			formData.append('startingLocation', entry.startingLocation || '');
+			formData.append('destination', entry.destination || '');
+			formData.append('driverOdometerStart', entry.odometerStart === '' ? '' : String(entry.odometerStart));
+			formData.append('driverOdometerEnd', entry.odometerEnd === '' ? '' : String(entry.odometerEnd));
+			formData.append('mileage', String(entry.mileage));
+			formData.append('notes', entry.notes || '');
+			return formData;
+		},
+
+		async submitDriverMileageForm() {
+			if (!this.mileageDriverName) {
+				this.showFormFeedback('Please enter your name.', 'error');
+				return;
+			}
+
+			// Convenience: if the driver filled in the row fields but forgot
+			// to click the + button, add it automatically before submitting.
+			if (!this.mileageEntries.length && this.mileageWorkDate && this.mileageMiles) {
+				this.addMileageEntryRow();
+			}
+			if (!this.mileageEntries.length) {
+				this.showFormFeedback('Please add at least one entry before submitting.', 'error');
+				return;
+			}
+
+			this.savingMileage = true;
+			try {
+				let submittedCount = 0;
+
+				// Submit sequentially and drop each row from the table only
+				// once it has actually saved -- if one fails partway through,
+				// the remaining un-submitted rows stay in the table so the
+				// driver can retry without resending entries twice.
+				while (this.mileageEntries.length) {
+					const entry = this.mileageEntries[0];
+					await submitDriverMileage(this.buildDriverMileageFormData(entry));
+					this.mileageEntries.shift();
+					submittedCount += 1;
+				}
+
+				this.mileageDialog = false;
+				this.resetMileageForm();
+				this.showFormFeedback(`${submittedCount} mileage ${submittedCount === 1 ? 'entry' : 'entries'} submitted successfully.`, 'success');
+			} catch (error) {
+				console.error('Failed to submit mileage:', error);
+				const responseData = error?.response?.data;
+				// debugError/debugErrorFile are only populated for localhost dev
+				// origins (see submitMileageForm.php) -- safe to surface here.
+				const debugDetail = responseData?.debugError
+					? ` [${responseData.debugError}${responseData.debugErrorFile ? ' @ ' + responseData.debugErrorFile : ''}]`
+					: '';
+				const message = (responseData?.message || error?.message || 'Failed to submit mileage. Please try again.') + debugDetail;
+				this.showFormFeedback(message, 'error');
+			} finally {
+				this.savingMileage = false;
 			}
 		},
 
