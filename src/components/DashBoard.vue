@@ -261,25 +261,10 @@
       title: 'Frontend Content',
       subtitle: 'Manage editable text and image fields for the website frontend.',
     },
-    mileageDashboard: {
-      group: 'Mileage Claims',
-      title: 'Mileage Dashboard',
-      subtitle: 'Monitor weekly mileage claims, payable totals, and exception flags.',
-    },
     mileageNew: {
       group: 'Mileage Claims',
       title: 'New Mileage Entry',
       subtitle: 'Record odometer readings, lunch-home deductions, and route mileage checks.',
-    },
-    mileageMine: {
-      group: 'Mileage Claims',
-      title: 'My Mileage Entries',
-      subtitle: 'Create, edit, and submit your mileage claims before weekly payroll processing.',
-    },
-    mileageWeekly: {
-      group: 'Mileage Claims',
-      title: 'Weekly Mileage Submissions',
-      subtitle: 'Submit Wednesday-to-Tuesday mileage forms for office review.',
     },
     mileageNewSubmissions: {
       group: 'Mileage Claims',
@@ -311,11 +296,6 @@
       title: 'Mileage Reports',
       subtitle: 'Review payable mileage totals per carer and driver.',
     },
-    mileageBreakdown: {
-      group: 'Mileage Claims',
-      title: 'Weekly Payroll Summary',
-      subtitle: 'Reconcile claimed, Access, pickup, expected, and payable mileage by carer.',
-    },
     mileageSettings: {
       group: 'Mileage Claims',
       title: 'Mileage Settings',
@@ -337,17 +317,13 @@
     vehicles: 'cars.directory',
     'route-optimiser': 'routes.optimiser',
     'google-drive': 'files.google_drive',
-    'mileage-dashboard': 'mileage.claims',
     'mileage-new': 'mileage.claims',
-    'mileage-mine': 'mileage.claims',
-    'mileage-weekly': 'mileage.claims',
     'mileage-new-submissions': 'mileage.claims',
     'mileage-review': 'mileage.claims',
     'mileage-manager-approval': 'mileage.final_approval',
     'mileage-carer-directory': 'mileage.claims',
     'mileage-run-directory': 'mileage.claims',
     'mileage-reports': 'mileage.claims',
-    'mileage-breakdown': 'mileage.claims',
     'mileage-settings': 'mileage.claims',
   };
 
@@ -480,10 +456,7 @@
                 { routeName: 'vehicledirectory', icon: 'mdi-car-info', label: 'Vehicle Directory' },
                 { routeName: 'routeoptimiser', icon: 'mdi-map-marker-path', label: 'Route Optimiser' },
                 { routeName: 'googledrive', icon: 'mdi-google-drive', label: 'Google Drive' },
-                { routeName: 'mileageDashboard', icon: 'mdi-speedometer', label: 'Mileage Dashboard' },
-                { routeName: 'mileageMine', icon: 'mdi-format-list-checks', label: 'My Mileage' },
                 { routeName: 'mileageReview', icon: 'mdi-clipboard-check-outline', label: 'Admin Mileage Review' },
-                { routeName: 'mileageBreakdown', icon: 'mdi-table-large', label: 'Weekly Mileage Breakdown' },
                 { routeName: 'mileageSettings', icon: 'mdi-cog-outline', label: 'Mileage Settings' },
                 { routeName: 'websitecontent', icon: 'mdi-web', label: 'Website Content' },
                 { routeName: 'complaints', icon: 'mdi-alert', label: 'View Complaints' },
@@ -701,17 +674,13 @@
         },
         mileageActionClick(action) {
           const routes = {
-            'mileage-dashboard': 'mileageDashboard',
             'mileage-new': 'mileageNew',
-            'mileage-mine': 'mileageMine',
-            'mileage-weekly': 'mileageWeekly',
             'mileage-new-submissions': 'mileageNewSubmissions',
             'mileage-review': 'mileageReview',
             'mileage-manager-approval': 'mileageManagerApproval',
             'mileage-carer-directory': 'mileageCarerDirectory',
             'mileage-run-directory': 'mileageRunDirectory',
             'mileage-reports': 'mileageReports',
-            'mileage-breakdown': 'mileageBreakdown',
             'mileage-settings': 'mileageSettings',
           };
           this.goToNamedRoute(routes[action]);

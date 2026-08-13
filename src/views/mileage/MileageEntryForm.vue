@@ -30,7 +30,7 @@
           </v-row>
           <div class="d-flex ga-2">
             <v-btn color="primary" type="submit" :loading="saving">Save Entry</v-btn>
-            <v-btn variant="outlined" @click="$router.push({ name: 'mileageMine' })">Cancel</v-btn>
+            <v-btn variant="outlined" @click="$router.back()">Cancel</v-btn>
           </div>
         </v-form>
       </v-card-text>
@@ -83,7 +83,7 @@ const save = async () => {
   saving.value = true;
   try {
     await saveMileageEntry(form);
-    router.push({ name: 'mileageMine' });
+    router.back();
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to save mileage entry.';
   } finally {
