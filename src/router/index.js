@@ -37,16 +37,12 @@ import userManagement from '../views/userManagement.vue'
 import routeOptimiser from '../views/routeOptimiser.vue'
 import GoogleDriveBrowser from '../views/GoogleDriveBrowser.vue'
 import messageRouting from '../views/messageRouting.vue'
-import MileageDashboard from '../views/mileage/MileageDashboard.vue'
 import MileageEntryForm from '../views/mileage/MileageEntryForm.vue'
-import MyMileageEntries from '../views/mileage/MyMileageEntries.vue'
-import WeeklyMileageSubmissions from '../views/mileage/WeeklyMileageSubmissions.vue'
 import AdminMileageReview from '../views/mileage/AdminMileageReview.vue'
 import NewMileageSubmissions from '../views/mileage/NewMileageSubmissions.vue'
 import MileageReports from '../views/mileage/MileageReports.vue'
 import MileageSettings from '../views/mileage/MileageSettings.vue'
 import CarerDirectory from '../views/mileage/CarerDirectory.vue'
-import WeeklyMileageBreakdown from '../views/mileage/WeeklyMileageBreakdown.vue'
 
 const routes = [
     {
@@ -245,24 +241,9 @@ const routes = [
             component: websiteContent
           },
           {
-            name: 'mileageDashboard',
-            path: '/mileage',
-            component: MileageDashboard
-          },
-          {
             name: 'mileageNew',
             path: '/mileage/new',
             component: MileageEntryForm
-          },
-          {
-            name: 'mileageMine',
-            path: '/mileage/my-entries',
-            component: MyMileageEntries
-          },
-          {
-            name: 'mileageWeekly',
-            path: '/mileage/weekly-submissions',
-            component: WeeklyMileageSubmissions
           },
           {
             name: 'mileageNewSubmissions',
@@ -289,11 +270,6 @@ const routes = [
             name: 'mileageReports',
             path: '/mileage/reports',
             component: MileageReports
-          },
-          {
-            name: 'mileageBreakdown',
-            path: '/mileage/weekly-breakdown',
-            component: WeeklyMileageBreakdown
           },
           {
             name: 'mileageSettings',
