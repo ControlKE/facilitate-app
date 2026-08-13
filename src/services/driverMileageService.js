@@ -17,3 +17,16 @@ export const submitDriverMileage = async (formData) => {
   }
   return data;
 };
+
+// Read-only name lists for the Colleague/Run dropdowns on the submission
+// form. Best-effort -- if either fails, the field just falls back to free
+// text (see fetchMileageFormLookups' caller in CareGiver.vue).
+export const fetchActiveCarerNames = async () => {
+  const response = await http.get(buildPhpApiUrl('submitMileageForm', 'listCarers'));
+  return response?.data?.names || [];
+};
+
+export const fetchActiveRunNames = async () => {
+  const response = await http.get(buildPhpApiUrl('submitMileageForm', 'listRuns'));
+  return response?.data?.names || [];
+};

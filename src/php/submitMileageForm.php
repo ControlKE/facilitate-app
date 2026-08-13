@@ -97,6 +97,9 @@ function ensurePublicSubmissionColumns(mysqli $conn): void
         // existing paper-form review process. These are not processed.
         'driver_odometer_start' => "ALTER TABLE mileage_entries ADD COLUMN driver_odometer_start DECIMAL(10,2) NULL AFTER photo_path",
         'driver_odometer_end' => "ALTER TABLE mileage_entries ADD COLUMN driver_odometer_end DECIMAL(10,2) NULL AFTER driver_odometer_start",
+        'vehicle_registration' => "ALTER TABLE mileage_entries ADD COLUMN vehicle_registration VARCHAR(20) NULL AFTER driver_odometer_end",
+        'colleague_name' => "ALTER TABLE mileage_entries ADD COLUMN colleague_name VARCHAR(190) NULL AFTER vehicle_registration",
+        'run_name' => "ALTER TABLE mileage_entries ADD COLUMN run_name VARCHAR(190) NULL AFTER colleague_name",
     ];
     foreach ($columns as $columnName => $alterSql) {
         $check = $conn->query("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mileage_entries' AND COLUMN_NAME = '{$columnName}' LIMIT 1");
@@ -108,6 +111,62 @@ function ensurePublicSubmissionColumns(mysqli $conn): void
         // migration hasn't been run yet.
         @$conn->query($alterSql);
     }
+}
+
+// Lightweight, read-only lookups for the mileage form's Colleague/Run
+// dropdowns. Self-contained (no dependency on mileage.php) since this file
+// is the public, unauthenticated entrypoint; only returns active names, no
+// address/phone/email.
+function ensureCarerDirectoryTableExists(mysqli $conn): void
+{
+    @$conn->query("CREATE TABLE IF NOT EXISTS carer_directory (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        driver_name VARCHAR(190) NOT NULL,
+        home_address VARCHAR(255) NOT NULL DEFAULT '',
+        notes VARCHAR(255) NULL DEFAULT NULL,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_carer_directory_name (driver_name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+}
+
+function listActiveCarerNames(mysqli $conn): array
+{
+    ensureCarerDirectoryTableExists($conn);
+    $names = [];
+    $result = $conn->query('SELECT driver_name FROM carer_directory WHERE is_active = 1 ORDER BY driver_name ASC');
+    if ($result !== false) {
+        while ($row = $result->fetch_assoc()) {
+            $names[] = (string) $row['driver_name'];
+        }
+    }
+    return $names;
+}
+
+function ensureRunsTableExists(mysqli $conn): void
+{
+    @$conn->query("CREATE TABLE IF NOT EXISTS mileage_runs (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_mileage_runs_name (name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+}
+
+function listActiveRunNames(mysqli $conn): array
+{
+    ensureRunsTableExists($conn);
+    $names = [];
+    $result = $conn->query('SELECT name FROM mileage_runs WHERE is_active = 1 ORDER BY name ASC');
+    if ($result !== false) {
+        while ($row = $result->fetch_assoc()) {
+            $names[] = (string) $row['name'];
+        }
+    }
+    return $names;
 }
 
 function uploadErrorMessage(int $errorCode): string
@@ -172,6 +231,22 @@ function saveUploadedPhoto(array $file): array
 }
 
 $action = strv($_GET['action'] ?? 'submit');
+
+// Read-only lookups for the form's Colleague/Run dropdowns -- no login, GET,
+// return active names only (no address/phone/email).
+if ($action === 'listCarers' || $action === 'listRuns') {
+    try {
+        $conn = createDatabaseConnection('auto');
+        if ($action === 'listCarers') {
+            jsonResponse(['success' => true, 'names' => listActiveCarerNames($conn)]);
+        }
+        jsonResponse(['success' => true, 'names' => listActiveRunNames($conn)]);
+    } catch (Throwable $exception) {
+        error_log('Unable to load mileage form lookups: ' . $exception->getMessage());
+        jsonResponse(['success' => false, 'message' => 'Unable to load list right now.', 'names' => []], 500);
+    }
+}
+
 if ($action !== 'submit' || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     jsonResponse(['success' => false, 'message' => 'Invalid request.'], 400);
 }
@@ -206,6 +281,14 @@ $driverOdometerStartRaw = strv($_POST['driverOdometerStart'] ?? '');
 $driverOdometerEndRaw = strv($_POST['driverOdometerEnd'] ?? '');
 $driverOdometerStart = $driverOdometerStartRaw === '' ? null : numv($driverOdometerStartRaw);
 $driverOdometerEnd = $driverOdometerEndRaw === '' ? null : numv($driverOdometerEndRaw);
+$vehicleRegistrationRaw = strv($_POST['vehicleRegistration'] ?? '');
+$vehicleRegistration = $vehicleRegistrationRaw === '' ? null : strtoupper($vehicleRegistrationRaw);
+// Colleague and run can differ per entry (different day, different pairing),
+// so they're captured per row, not once for the whole batch.
+$colleagueNameRaw = strv($_POST['colleagueName'] ?? '');
+$colleagueName = $colleagueNameRaw === '' ? null : $colleagueNameRaw;
+$runNameRaw = strv($_POST['runName'] ?? '');
+$runName = $runNameRaw === '' ? null : $runNameRaw;
 
 if ($driverName === '') {
     jsonResponse(['success' => false, 'message' => 'Please enter your name.'], 422);
@@ -258,12 +341,12 @@ try {
 
     $stmt = $conn->prepare('INSERT INTO mileage_entries (
         user_id, driver_name, source, submitter_phone, submitter_email, photo_path,
-        driver_odometer_start, driver_odometer_end,
+        driver_odometer_start, driver_odometer_end, vehicle_registration, colleague_name, run_name,
         work_date, submission_week_start, submission_week_end,
         starting_location, ending_location, odometer_start, odometer_end,
         claimed_mileage, adjusted_claimed_mileage, threshold_flag, explanation_required,
         driver_explanation, admin_status, mileage_rate, notes, submitted_at
-    ) VALUES (0, ?, \'driver_portal\', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())');
+    ) VALUES (0, ?, \'driver_portal\', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())');
 
     if ($stmt === false) {
         $conn->close();
@@ -272,13 +355,16 @@ try {
 
     $explanationRequired = $submissionType === 'single' ? 1 : 0;
     $stmt->bind_param(
-        'ssssddsssssdddiissds',
+        'ssssddssssssssdddiissds',
         $driverName,
         $phone,
         $email,
         $photoPath,
         $driverOdometerStart,
         $driverOdometerEnd,
+        $vehicleRegistration,
+        $colleagueName,
+        $runName,
         $workDate,
         $week['weekStart'],
         $week['weekEnd'],

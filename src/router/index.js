@@ -46,6 +46,7 @@ import NewMileageSubmissions from '../views/mileage/NewMileageSubmissions.vue'
 import MileageReports from '../views/mileage/MileageReports.vue'
 import MileageSettings from '../views/mileage/MileageSettings.vue'
 import CarerDirectory from '../views/mileage/CarerDirectory.vue'
+import RunDirectory from '../views/mileage/RunDirectory.vue'
 import WeeklyMileageBreakdown from '../views/mileage/WeeklyMileageBreakdown.vue'
 
 const routes = [
@@ -284,6 +285,11 @@ const routes = [
             name: 'mileageCarerDirectory',
             path: '/mileage/carer-directory',
             component: CarerDirectory
+          },
+          {
+            name: 'mileageRunDirectory',
+            path: '/mileage/run-directory',
+            component: RunDirectory
           },
           {
             name: 'mileageReports',

@@ -10,6 +10,8 @@
         <v-alert type="info" variant="tonal" class="mb-3">
           Driver claimed <strong>{{ entry?.adjustedClaimedMileage }} mi</strong> on {{ entry?.workDate }}.
           Enter the Access route total and commute legs below -- the expected total is calculated automatically.
+          <span v-if="entry?.colleagueName">Worked with <strong>{{ entry.colleagueName }}</strong>.</span>
+          <span v-if="entry?.runName">Run: <strong>{{ entry.runName }}</strong>.</span>
         </v-alert>
         <v-alert v-if="carerHomeAddress" type="success" variant="tonal" class="mb-3" density="compact">
           {{ entry?.driverName }}'s home address on file: <strong>{{ carerHomeAddress }}</strong>
@@ -117,6 +119,11 @@ const verify = reactive({
   middayPickupColleagueAddress: '',
 });
 
+const findCarerHomeAddress = (name) => {
+  const match = props.carers.find((c) => c.driverName.toLowerCase() === String(name || '').toLowerCase());
+  return match?.homeAddress || '';
+};
+
 watch(
   () => [props.modelValue, props.entry],
   ([open, entry]) => {
@@ -124,7 +131,10 @@ watch(
     verify.accessRunTotalMileage = entry.accessRunTotalMileage || 0;
     verify.homeToFirstClientMileage = entry.homeToFirstClientMileage || 0;
     verify.lastClientToHomeMileage = entry.lastClientToHomeMileage || 0;
-    verify.colleagueAddress = entry.colleagueAddress || '';
+    // Pre-fill from the carer directory using the colleague the driver named
+    // on the entry, if the office hasn't already recorded one on a previous
+    // verify pass -- still fully editable below.
+    verify.colleagueAddress = entry.colleagueAddress || findCarerHomeAddress(entry.colleagueName) || '';
     verify.isHalfDaySwap = Boolean(entry.isHalfDaySwap);
     verify.middayColleagueSwapMileage = entry.middayColleagueSwapMileage || 0;
     verify.middayDropoffColleagueAddress = entry.middayDropoffColleagueAddress || '';
@@ -133,10 +143,7 @@ watch(
   { immediate: true }
 );
 
-const carerHomeAddress = computed(() => {
-  const match = props.carers.find((c) => c.driverName.toLowerCase() === (props.entry?.driverName || '').toLowerCase());
-  return match?.homeAddress || '';
-});
+const carerHomeAddress = computed(() => findCarerHomeAddress(props.entry?.driverName));
 const verifyExpectedTotal = computed(() => {
   const swap = verify.isHalfDaySwap ? Number(verify.middayColleagueSwapMileage || 0) : 0;
   const total = Number(verify.accessRunTotalMileage || 0) + Number(verify.homeToFirstClientMileage || 0) + Number(verify.lastClientToHomeMileage || 0) + swap;

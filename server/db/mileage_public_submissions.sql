@@ -30,6 +30,11 @@ ALTER TABLE mileage_entries
 ALTER TABLE mileage_entries
   ADD COLUMN IF NOT EXISTS driver_odometer_end DECIMAL(10,2) NULL AFTER driver_odometer_start;
 
+-- Vehicle registration as entered on the driver portal form (odometer
+-- start/end textboxes were removed from that form in favour of this).
+ALTER TABLE mileage_entries
+  ADD COLUMN IF NOT EXISTS vehicle_registration VARCHAR(20) NULL AFTER driver_odometer_end;
+
 ALTER TABLE mileage_entries
   ADD INDEX IF NOT EXISTS idx_mileage_entries_source (source);
 

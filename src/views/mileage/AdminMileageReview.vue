@@ -82,6 +82,9 @@
             <span v-if="selected?.submitterEmail">Email: {{ selected.submitterEmail }}.</span>
             <span v-if="selected?.startingLocation">From: {{ selected.startingLocation }}.</span>
             <span v-if="selected?.endingLocation">To: {{ selected.endingLocation }}.</span>
+            <span v-if="selected?.vehicleRegistration">Vehicle: {{ selected.vehicleRegistration }}.</span>
+            <span v-if="selected?.colleagueName">Worked with: {{ selected.colleagueName }}.</span>
+            <span v-if="selected?.runName">Run: {{ selected.runName }}.</span>
             <span v-if="selected?.driverOdometerStart !== null && selected?.driverOdometerStart !== undefined">
               Odometer: {{ selected.driverOdometerStart }} &rarr; {{ selected.driverOdometerEnd }}.
             </span>

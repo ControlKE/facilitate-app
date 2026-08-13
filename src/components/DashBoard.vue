@@ -301,6 +301,11 @@
       title: 'Carer Directory',
       subtitle: 'Maintain carer home addresses used when verifying commute mileage.',
     },
+    mileageRunDirectory: {
+      group: 'Mileage Claims',
+      title: 'Run Directory',
+      subtitle: 'Maintain the list of runs shown on the driver mileage submission form.',
+    },
     mileageReports: {
       group: 'Mileage Claims',
       title: 'Mileage Reports',
@@ -340,6 +345,7 @@
     'mileage-review': 'mileage.claims',
     'mileage-manager-approval': 'mileage.final_approval',
     'mileage-carer-directory': 'mileage.claims',
+    'mileage-run-directory': 'mileage.claims',
     'mileage-reports': 'mileage.claims',
     'mileage-breakdown': 'mileage.claims',
     'mileage-settings': 'mileage.claims',
@@ -374,14 +380,11 @@
         ],
 
         mileage: [
-            { text: 'Dashboard', icon: 'mdi-view-dashboard-outline', action: 'mileage-dashboard' },
-            { text: 'My Mileage', icon: 'mdi-format-list-checks', action: 'mileage-mine' },
-            { text: 'Weekly Submissions', icon: 'mdi-calendar-week', action: 'mileage-weekly' },
-            { text: 'Weekly Breakdown', icon: 'mdi-table-large', action: 'mileage-breakdown' },
             { text: 'New Mileage Submissions', icon: 'mdi-tray-full', action: 'mileage-new-submissions' },
             { text: 'Verify Mileage', icon: 'mdi-clipboard-check-outline', action: 'mileage-review' },
             { text: 'Manager Approval', icon: 'mdi-shield-check-outline', action: 'mileage-manager-approval' },
             { text: 'Carer Directory', icon: 'mdi-card-account-details-outline', action: 'mileage-carer-directory' },
+            { text: 'Run Directory', icon: 'mdi-map-marker-path', action: 'mileage-run-directory' },
             { text: 'Reports', icon: 'mdi-file-chart-outline', action: 'mileage-reports' },
             { text: 'Settings', icon: 'mdi-cog-outline', action: 'mileage-settings' },
         ],
@@ -706,6 +709,7 @@
             'mileage-review': 'mileageReview',
             'mileage-manager-approval': 'mileageManagerApproval',
             'mileage-carer-directory': 'mileageCarerDirectory',
+            'mileage-run-directory': 'mileageRunDirectory',
             'mileage-reports': 'mileageReports',
             'mileage-breakdown': 'mileageBreakdown',
             'mileage-settings': 'mileageSettings',

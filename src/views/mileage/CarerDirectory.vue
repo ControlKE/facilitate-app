@@ -13,13 +13,14 @@
         </v-alert>
         <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
         <v-table density="comfortable">
-          <thead><tr><th>Carer</th><th>Home Address</th><th>Postcode</th><th>Notes</th><th>Status</th><th style="width:110px"></th></tr></thead>
+          <thead><tr><th>Carer</th><th>Home Address</th><th>Postcode</th><th>Mobile</th><th>Email</th><th>Status</th><th style="width:110px"></th></tr></thead>
           <tbody>
             <tr v-for="carer in carers" :key="carer.id">
-              <td>{{ carer.driverName }}</td>
+              <td>{{ carer.title ? carer.title + ' ' : '' }}{{ carer.driverName }}</td>
               <td>{{ addressSummary(carer) }}</td>
               <td>{{ carer.postcode || '-' }}</td>
-              <td>{{ carer.notes || '-' }}</td>
+              <td>{{ carer.mobilePhone || '-' }}</td>
+              <td>{{ carer.email || '-' }}</td>
               <td><v-chip size="small" :color="carer.isActive ? 'success' : 'grey'" variant="tonal">{{ carer.isActive ? 'Active' : 'Inactive' }}</v-chip></td>
               <td class="text-no-wrap">
                 <v-btn size="small" variant="text" icon="mdi-pencil" @click="openForm(carer)" />
@@ -27,7 +28,7 @@
               </td>
             </tr>
             <tr v-if="!loading && !carers.length">
-              <td colspan="6" class="text-center text-medium-emphasis">No carers added yet.</td>
+              <td colspan="7" class="text-center text-medium-emphasis">No carers added yet.</td>
             </tr>
           </tbody>
         </v-table>
@@ -40,11 +41,24 @@
         <v-card-text>
           <div class="text-overline text-medium-emphasis mb-1">Name</div>
           <v-row dense>
-            <v-col cols="12" md="6">
+            <v-col cols="12" md="3">
+              <v-select v-model="form.title" :items="['Mr', 'Mrs', 'Miss', 'Ms', 'Dr']" label="Title" variant="outlined" clearable />
+            </v-col>
+            <v-col cols="12" md="4">
               <v-text-field v-model="form.firstName" label="First name*" variant="outlined" />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col cols="12" md="5">
               <v-text-field v-model="form.lastName" label="Last name*" variant="outlined" />
+            </v-col>
+          </v-row>
+
+          <div class="text-overline text-medium-emphasis mb-1 mt-2">Contact</div>
+          <v-row dense>
+            <v-col cols="12" md="6">
+              <v-text-field v-model="form.mobilePhone" label="Mobile" variant="outlined" />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field v-model="form.email" label="Email" variant="outlined" />
             </v-col>
           </v-row>
 
@@ -90,11 +104,14 @@ const form = reactive({
   id: null,
   firstName: '',
   lastName: '',
+  title: '',
   addressLine1: '',
   addressLine2: '',
   townCity: '',
   county: '',
   postcode: '',
+  mobilePhone: '',
+  email: '',
   notes: '',
   isActive: true,
 });
@@ -120,11 +137,14 @@ const openForm = (carer) => {
   form.id = carer?.id || null;
   form.firstName = carer?.firstName || '';
   form.lastName = carer?.lastName || '';
+  form.title = carer?.title || '';
   form.addressLine1 = carer?.addressLine1 || '';
   form.addressLine2 = carer?.addressLine2 || '';
   form.townCity = carer?.townCity || '';
   form.county = carer?.county || '';
   form.postcode = carer?.postcode || '';
+  form.mobilePhone = carer?.mobilePhone || '';
+  form.email = carer?.email || '';
   form.notes = carer?.notes || '';
   form.isActive = carer ? carer.isActive : true;
   dialog.value = true;

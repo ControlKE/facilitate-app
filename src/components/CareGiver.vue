@@ -385,7 +385,14 @@
 												<v-text-field v-model="mileagePhone" label="Phone Number" variant="outlined"></v-text-field>
 											</v-col>
 										</v-row>
-										<v-text-field v-model="mileageEmail" label="Email (optional, for confirmation)" variant="outlined"></v-text-field>
+										<v-row dense>
+											<v-col cols="12" md="6">
+												<v-text-field v-model="mileageEmail" label="Email (optional, for confirmation)" variant="outlined"></v-text-field>
+											</v-col>
+											<v-col cols="12" md="6">
+												<v-text-field v-model="mileageVehicleReg" label="Vehicle Registration Number" variant="outlined"></v-text-field>
+											</v-col>
+										</v-row>
 
 										<div class="text-subtitle-2 mb-2">Add one row per day, matching your paper mileage log, then submit the whole batch. Only Date and Mileage are required -- the rest are optional.</div>
 										<v-row dense>
@@ -401,13 +408,29 @@
 											<v-col cols="12" md="3">
 												<v-text-field v-model="mileageMiles" label="Mileage*" type="number" min="0" variant="outlined" density="compact" hide-details></v-text-field>
 											</v-col>
-											<v-col cols="12" md="3">
-												<v-text-field v-model.number="mileageOdometerStart" label="Odometer Start" type="number" min="0" variant="outlined" density="compact" hide-details></v-text-field>
+											<v-col cols="12" md="4">
+												<v-combobox
+													v-model="mileageColleague"
+													label="Colleague worked with"
+													:items="carerNameOptions"
+													variant="outlined"
+													density="compact"
+													hide-details
+													clearable
+												></v-combobox>
+											</v-col>
+											<v-col cols="12" md="4">
+												<v-combobox
+													v-model="mileageRun"
+													label="Run"
+													:items="runNameOptions"
+													variant="outlined"
+													density="compact"
+													hide-details
+													clearable
+												></v-combobox>
 											</v-col>
 											<v-col cols="12" md="3">
-												<v-text-field v-model.number="mileageOdometerEnd" label="Odometer End" type="number" min="0" variant="outlined" density="compact" hide-details></v-text-field>
-											</v-col>
-											<v-col cols="12" md="5">
 												<v-text-field v-model="mileageNotes" label="Description / Notes" variant="outlined" density="compact" hide-details></v-text-field>
 											</v-col>
 											<v-col cols="12" md="1" class="text-center">
@@ -417,14 +440,14 @@
 
 										<div v-if="mileageEntries.length" class="mt-4" style="overflow-x: auto">
 											<v-table density="compact">
-												<thead><tr><th>Date</th><th>From</th><th>To</th><th>Odo Start</th><th>Odo End</th><th>Mileage</th><th>Notes</th><th style="width:48px"></th></tr></thead>
+												<thead><tr><th>Date</th><th>From</th><th>To</th><th>Colleague</th><th>Run</th><th>Mileage</th><th>Notes</th><th style="width:48px"></th></tr></thead>
 												<tbody>
 													<tr v-for="(row, i) in mileageEntries" :key="i">
 														<td>{{ row.workDate }}</td>
 														<td>{{ row.startingLocation }}</td>
 														<td>{{ row.destination }}</td>
-														<td>{{ row.odometerStart }}</td>
-														<td>{{ row.odometerEnd }}</td>
+														<td>{{ row.colleagueName }}</td>
+														<td>{{ row.runName }}</td>
 														<td>{{ row.mileage }}</td>
 														<td>{{ row.notes }}</td>
 														<td><v-btn size="small" variant="text" icon="mdi-delete" @click="mileageEntries.splice(i, 1)"></v-btn></td>
@@ -589,7 +612,7 @@ import { VDateInput } from 'vuetify/labs/VDateInput'
 </script>
 <script >
 import axios from 'axios'
-import { submitDriverMileage } from '../services/driverMileageService'
+import { fetchActiveCarerNames, fetchActiveRunNames, submitDriverMileage } from '../services/driverMileageService'
 
 
 export default {
@@ -619,11 +642,14 @@ export default {
 			mileageWorkDate: new Date().toISOString().slice(0, 10),
 			mileageStartingLocation: '',
 			mileageDestination: '',
-			mileageOdometerStart: null,
-			mileageOdometerEnd: null,
+			mileageVehicleReg: '',
+			mileageColleague: '',
+			mileageRun: '',
 			mileageMiles: null,
 			mileageNotes: '',
 			mileageEntries: [],
+			carerNameOptions: [],
+			runNameOptions: [],
 
 			titlecb: '',
 			FNametc: '',
@@ -675,6 +701,9 @@ export default {
 			],
 
 		}
+	},
+	mounted() {
+		this.loadMileageFormLookups();
 	},
 	methods: {
         openComplaintDialog() {
@@ -795,6 +824,21 @@ export default {
 			}
 		},
 
+		async loadMileageFormLookups() {
+			// Best-effort -- if either fails to load, the Colleague/Run fields
+			// still work as free-text combobox entry, just without suggestions.
+			try {
+				this.carerNameOptions = await fetchActiveCarerNames();
+			} catch (error) {
+				console.warn('Failed to load carer name suggestions:', error);
+			}
+			try {
+				this.runNameOptions = await fetchActiveRunNames();
+			} catch (error) {
+				console.warn('Failed to load run name suggestions:', error);
+			}
+		},
+
 		resetMileageForm() {
 			this.mileageDriverName = '';
 			this.mileagePhone = '';
@@ -802,8 +846,9 @@ export default {
 			this.mileageWorkDate = new Date().toISOString().slice(0, 10);
 			this.mileageStartingLocation = '';
 			this.mileageDestination = '';
-			this.mileageOdometerStart = null;
-			this.mileageOdometerEnd = null;
+			this.mileageVehicleReg = '';
+			this.mileageColleague = '';
+			this.mileageRun = '';
 			this.mileageMiles = null;
 			this.mileageNotes = '';
 			this.mileageEntries = [];
@@ -823,18 +868,19 @@ export default {
 				workDate: this.mileageWorkDate,
 				startingLocation: this.mileageStartingLocation || '',
 				destination: this.mileageDestination || '',
-				odometerStart: this.mileageOdometerStart ?? '',
-				odometerEnd: this.mileageOdometerEnd ?? '',
+				colleagueName: this.mileageColleague || '',
+				runName: this.mileageRun || '',
 				mileage: Number(this.mileageMiles),
 				notes: this.mileageNotes || '',
 			});
 
-			// Keep the driver's name/phone/email, but clear the row inputs so
-			// the next day's entry starts fresh.
+			// Keep the driver's name/phone/email, but clear the row inputs that
+			// change day to day (including colleague/run, since either can
+			// differ daily) so the next entry starts fresh.
 			this.mileageStartingLocation = '';
 			this.mileageDestination = '';
-			this.mileageOdometerStart = null;
-			this.mileageOdometerEnd = null;
+			this.mileageColleague = '';
+			this.mileageRun = '';
 			this.mileageMiles = null;
 			this.mileageNotes = '';
 		},
@@ -845,11 +891,12 @@ export default {
 			formData.append('driverName', this.mileageDriverName);
 			formData.append('phone', this.mileagePhone || '');
 			formData.append('email', this.mileageEmail || '');
+			formData.append('vehicleRegistration', this.mileageVehicleReg || '');
 			formData.append('workDate', entry.workDate);
 			formData.append('startingLocation', entry.startingLocation || '');
 			formData.append('destination', entry.destination || '');
-			formData.append('driverOdometerStart', entry.odometerStart === '' ? '' : String(entry.odometerStart));
-			formData.append('driverOdometerEnd', entry.odometerEnd === '' ? '' : String(entry.odometerEnd));
+			formData.append('colleagueName', entry.colleagueName || '');
+			formData.append('runName', entry.runName || '');
 			formData.append('mileage', String(entry.mileage));
 			formData.append('notes', entry.notes || '');
 			return formData;

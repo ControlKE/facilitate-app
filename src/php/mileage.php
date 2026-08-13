@@ -101,6 +101,9 @@ function rowToEntry(array $row): array
         'photoPath' => $row['photo_path'] ?? null,
         'driverOdometerStart' => isset($row['driver_odometer_start']) ? (float) $row['driver_odometer_start'] : null,
         'driverOdometerEnd' => isset($row['driver_odometer_end']) ? (float) $row['driver_odometer_end'] : null,
+        'vehicleRegistration' => (string) ($row['vehicle_registration'] ?? ''),
+        'colleagueName' => (string) ($row['colleague_name'] ?? ''),
+        'runName' => (string) ($row['run_name'] ?? ''),
         'workDate' => (string) $row['work_date'],
         'submissionWeekStart' => (string) $row['submission_week_start'],
         'submissionWeekEnd' => (string) $row['submission_week_end'],
@@ -375,11 +378,14 @@ SQL;
     $columns = [
         'first_name' => "ALTER TABLE carer_directory ADD COLUMN first_name VARCHAR(100) NOT NULL DEFAULT '' AFTER driver_name",
         'last_name' => "ALTER TABLE carer_directory ADD COLUMN last_name VARCHAR(100) NOT NULL DEFAULT '' AFTER first_name",
+        'title' => "ALTER TABLE carer_directory ADD COLUMN title VARCHAR(10) NULL AFTER last_name",
         'address_line1' => "ALTER TABLE carer_directory ADD COLUMN address_line1 VARCHAR(190) NULL AFTER home_address",
         'address_line2' => "ALTER TABLE carer_directory ADD COLUMN address_line2 VARCHAR(190) NULL AFTER address_line1",
         'town_city' => "ALTER TABLE carer_directory ADD COLUMN town_city VARCHAR(120) NULL AFTER address_line2",
         'county' => "ALTER TABLE carer_directory ADD COLUMN county VARCHAR(120) NULL AFTER town_city",
         'postcode' => "ALTER TABLE carer_directory ADD COLUMN postcode VARCHAR(20) NULL AFTER county",
+        'mobile_phone' => "ALTER TABLE carer_directory ADD COLUMN mobile_phone VARCHAR(40) NULL AFTER postcode",
+        'email' => "ALTER TABLE carer_directory ADD COLUMN email VARCHAR(191) NULL AFTER mobile_phone",
     ];
     foreach ($columns as $columnName => $alterSql) {
         $check = $conn->query("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'carer_directory' AND COLUMN_NAME = '{$columnName}' LIMIT 1");
@@ -393,7 +399,7 @@ SQL;
 function listCarers(mysqli $conn): array
 {
     ensureCarerDirectoryTable($conn);
-    $result = $conn->query('SELECT id, driver_name, first_name, last_name, home_address, address_line1, address_line2, town_city, county, postcode, notes, is_active FROM carer_directory ORDER BY driver_name ASC');
+    $result = $conn->query('SELECT id, driver_name, first_name, last_name, title, home_address, address_line1, address_line2, town_city, county, postcode, mobile_phone, email, notes, is_active FROM carer_directory ORDER BY driver_name ASC');
     $rows = [];
     if ($result !== false) {
         while ($row = $result->fetch_assoc()) {
@@ -402,12 +408,15 @@ function listCarers(mysqli $conn): array
                 'driverName' => (string) $row['driver_name'],
                 'firstName' => (string) ($row['first_name'] ?? ''),
                 'lastName' => (string) ($row['last_name'] ?? ''),
+                'title' => (string) ($row['title'] ?? ''),
                 'homeAddress' => (string) $row['home_address'],
                 'addressLine1' => (string) ($row['address_line1'] ?? ''),
                 'addressLine2' => (string) ($row['address_line2'] ?? ''),
                 'townCity' => (string) ($row['town_city'] ?? ''),
                 'county' => (string) ($row['county'] ?? ''),
                 'postcode' => (string) ($row['postcode'] ?? ''),
+                'mobilePhone' => (string) ($row['mobile_phone'] ?? ''),
+                'email' => (string) ($row['email'] ?? ''),
                 'notes' => (string) ($row['notes'] ?? ''),
                 'isActive' => ((int) $row['is_active']) === 1,
             ];
@@ -426,6 +435,7 @@ function saveCarer(mysqli $conn, array $payload): array
         throw new RuntimeException('First name and last name are required.');
     }
     $driverName = trim($firstName . ' ' . $lastName);
+    $title = strv($payload['title'] ?? '');
 
     $addressLine1 = strv($payload['addressLine1'] ?? '');
     $addressLine2 = strv($payload['addressLine2'] ?? '');
@@ -437,46 +447,54 @@ function saveCarer(mysqli $conn, array $payload): array
     // keeps working without needing to know about the individual parts.
     $homeAddress = implode(', ', array_filter([$addressLine1, $addressLine2, $townCity, $county, $postcode], fn ($part) => $part !== ''));
 
+    $mobilePhone = strv($payload['mobilePhone'] ?? '');
+    $email = strv($payload['email'] ?? '');
     $notes = strv($payload['notes'] ?? '');
     $isActive = boolv($payload['isActive'] ?? true) ? 1 : 0;
 
     if ($id > 0) {
-        $stmt = $conn->prepare('UPDATE carer_directory SET driver_name = ?, first_name = ?, last_name = ?, home_address = ?, address_line1 = ?, address_line2 = ?, town_city = ?, county = ?, postcode = ?, notes = ?, is_active = ? WHERE id = ?');
+        $stmt = $conn->prepare('UPDATE carer_directory SET driver_name = ?, first_name = ?, last_name = ?, title = ?, home_address = ?, address_line1 = ?, address_line2 = ?, town_city = ?, county = ?, postcode = ?, mobile_phone = ?, email = ?, notes = ?, is_active = ? WHERE id = ?');
         if ($stmt === false) {
             throw new RuntimeException('Failed to prepare carer update.');
         }
         $stmt->bind_param(
-            'ssssssssssii',
+            'sssssssssssssii',
             $driverName,
             $firstName,
             $lastName,
+            $title,
             $homeAddress,
             $addressLine1,
             $addressLine2,
             $townCity,
             $county,
             $postcode,
+            $mobilePhone,
+            $email,
             $notes,
             $isActive,
             $id
         );
     } else {
-        $stmt = $conn->prepare('INSERT INTO carer_directory (driver_name, first_name, last_name, home_address, address_line1, address_line2, town_city, county, postcode, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE first_name = VALUES(first_name), last_name = VALUES(last_name), home_address = VALUES(home_address), address_line1 = VALUES(address_line1), address_line2 = VALUES(address_line2), town_city = VALUES(town_city), county = VALUES(county), postcode = VALUES(postcode), notes = VALUES(notes), is_active = VALUES(is_active)');
+        $stmt = $conn->prepare('INSERT INTO carer_directory (driver_name, first_name, last_name, title, home_address, address_line1, address_line2, town_city, county, postcode, mobile_phone, email, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE first_name = VALUES(first_name), last_name = VALUES(last_name), title = VALUES(title), home_address = VALUES(home_address), address_line1 = VALUES(address_line1), address_line2 = VALUES(address_line2), town_city = VALUES(town_city), county = VALUES(county), postcode = VALUES(postcode), mobile_phone = VALUES(mobile_phone), email = VALUES(email), notes = VALUES(notes), is_active = VALUES(is_active)');
         if ($stmt === false) {
             throw new RuntimeException('Failed to prepare carer insert.');
         }
         $stmt->bind_param(
-            'ssssssssssi',
+            'sssssssssssssi',
             $driverName,
             $firstName,
             $lastName,
+            $title,
             $homeAddress,
             $addressLine1,
             $addressLine2,
             $townCity,
             $county,
             $postcode,
+            $mobilePhone,
+            $email,
             $notes,
             $isActive
         );
@@ -494,6 +512,81 @@ function deleteCarer(mysqli $conn, int $id): void
 {
     ensureCarerDirectoryTable($conn);
     $stmt = $conn->prepare('DELETE FROM carer_directory WHERE id = ?');
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function ensureRunsTable(mysqli $conn): void
+{
+    $sql = <<<SQL
+CREATE TABLE IF NOT EXISTS mileage_runs (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_mileage_runs_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL;
+    // Best-effort fallback if server/db/carer_bio_and_runs.sql hasn't been
+    // run yet -- mirrors the pattern used elsewhere in this file.
+    @$conn->query($sql);
+}
+
+function listRuns(mysqli $conn): array
+{
+    ensureRunsTable($conn);
+    $result = $conn->query('SELECT id, name, is_active FROM mileage_runs ORDER BY name ASC');
+    $rows = [];
+    if ($result !== false) {
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = [
+                'id' => (int) $row['id'],
+                'name' => (string) $row['name'],
+                'isActive' => ((int) $row['is_active']) === 1,
+            ];
+        }
+    }
+    return $rows;
+}
+
+function saveRun(mysqli $conn, array $payload): array
+{
+    ensureRunsTable($conn);
+    $id = intv($payload['id'] ?? 0);
+    $name = strv($payload['name'] ?? '');
+    if ($name === '') {
+        throw new RuntimeException('Run name is required.');
+    }
+    $isActive = boolv($payload['isActive'] ?? true) ? 1 : 0;
+
+    if ($id > 0) {
+        $stmt = $conn->prepare('UPDATE mileage_runs SET name = ?, is_active = ? WHERE id = ?');
+        if ($stmt === false) {
+            throw new RuntimeException('Failed to prepare run update.');
+        }
+        $stmt->bind_param('sii', $name, $isActive, $id);
+    } else {
+        $stmt = $conn->prepare('INSERT INTO mileage_runs (name, is_active) VALUES (?, ?) ON DUPLICATE KEY UPDATE is_active = VALUES(is_active)');
+        if ($stmt === false) {
+            throw new RuntimeException('Failed to prepare run insert.');
+        }
+        $stmt->bind_param('si', $name, $isActive);
+    }
+    if (!$stmt->execute()) {
+        $message = $stmt->error ?: 'Failed to save run.';
+        $stmt->close();
+        throw new RuntimeException($message);
+    }
+    $stmt->close();
+    return ['success' => true];
+}
+
+function deleteRun(mysqli $conn, int $id): void
+{
+    ensureRunsTable($conn);
+    $stmt = $conn->prepare('DELETE FROM mileage_runs WHERE id = ?');
     $stmt->bind_param('i', $id);
     $stmt->execute();
     $stmt->close();
@@ -961,6 +1054,12 @@ try {
     if ($action === 'deleteCarer') {
         deleteCarer($conn, intv($_GET['id'] ?? $payload['id'] ?? 0));
         jsonResponse(['success' => true, 'carers' => listCarers($conn)]);
+    }
+    if ($action === 'listRuns') jsonResponse(['success' => true, 'runs' => listRuns($conn)]);
+    if ($action === 'saveRun') jsonResponse(saveRun($conn, $payload) + ['runs' => listRuns($conn)]);
+    if ($action === 'deleteRun') {
+        deleteRun($conn, intv($_GET['id'] ?? $payload['id'] ?? 0));
+        jsonResponse(['success' => true, 'runs' => listRuns($conn)]);
     }
     if ($action === 'submitWeek') {
         $userId = intv($payload['userId'] ?? 0);
